@@ -1,1 +1,7 @@
 .DS_Store
+
+bin/
+tmp/
+go.work
+.env
+vendor/
