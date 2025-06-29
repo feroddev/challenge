@@ -1,6 +1,6 @@
 #!/bin/bash
 
-echo "Testando endpoint do giroscópio..."
+echo "Testando POST do giroscópio..."
 curl -X POST http://localhost:8080/telemetry/gyroscope \
   -H "Content-Type: application/json" \
   -d '{
@@ -11,7 +11,7 @@ curl -X POST http://localhost:8080/telemetry/gyroscope \
     "device_id": "abc123"
   }'
 
-echo -e "\n\nTestando endpoint do GPS..."
+echo -e "\n\nTestando POST do GPS..."
 curl -X POST http://localhost:8080/telemetry/gps \
   -H "Content-Type: application/json" \
   -d '{
@@ -21,7 +21,7 @@ curl -X POST http://localhost:8080/telemetry/gps \
     "device_id": "abc123"
   }'
 
-echo -e "\n\nTestando endpoint da foto..."
+echo -e "\n\nTestando POST da foto..."
 curl -X POST http://localhost:8080/telemetry/photo \
   -H "Content-Type: application/json" \
   -d '{
@@ -29,3 +29,12 @@ curl -X POST http://localhost:8080/telemetry/photo \
     "timestamp": "2025-06-28T20:30:00Z",
     "device_id": "abc123"
   }'
+
+echo -e "\n\nTestando GET do giroscópio..."
+curl -X GET http://localhost:8080/telemetry/gyroscope
+
+echo -e "\n\nTestando GET do GPS..."
+curl -X GET http://localhost:8080/telemetry/gps
+
+echo -e "\n\nTestando GET da foto..."
+curl -X GET http://localhost:8080/telemetry/photo
