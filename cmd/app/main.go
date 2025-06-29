@@ -1,18 +1,12 @@
 package main
 
 import (
-	"context"
-	"fmt"
 	"log"
-	"os"
 
-	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/rekognition"
 	"github.com/gin-gonic/gin"
-	"github.com/go-redis/redis/v8"
 	"github.com/joho/godotenv"
 	"go.uber.org/zap"
-	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 
 	cfg "github/feroddev/challengeV3/config"
@@ -21,6 +15,7 @@ import (
 	"github/feroddev/challengeV3/internal/pkg/cache"
 	"github/feroddev/challengeV3/internal/pkg/database"
 	"github/feroddev/challengeV3/internal/pkg/logger"
+	"github/feroddev/challengeV3/internal/pkg/messaging"
 	"github/feroddev/challengeV3/internal/pkg/recognition"
 	"github/feroddev/challengeV3/internal/repositories"
 	"github/feroddev/challengeV3/internal/services"
@@ -29,10 +24,11 @@ import (
 func main() {
 	loadEnv()
 
-	cfg := config.NewConfig()
+	config := cfg.NewConfig()
 
 	// Inicializa o logger
-	zapLogger, err := logger.NewLogger(cfg.Server.Environment == "development")
+	isDebug := config.Server.Environment == "development"
+	zapLogger, err := logger.NewLogger(isDebug)
 	if err != nil {
 		log.Fatalf("Erro ao inicializar logger: %v", err)
 	}
@@ -51,32 +47,65 @@ func main() {
 
 	// Inicializa o serviço Redis
 	redisCache := cache.NewRedisCache(
-		os.Getenv("REDIS_ADDR"),
-		os.Getenv("REDIS_PASSWORD"),
-		0,
+		config.Redis.Addr,
+		config.Redis.Password,
+		config.Redis.DB,
 		zapLogger,
 	)
 
 	// Inicializa o serviço de reconhecimento
-	rekognitionService, err := recognition.NewRekognitionService(zapLogger)
-	if err != nil {
-		zapLogger.Fatal("Erro ao inicializar serviço de reconhecimento", zap.Error(err))
+	// Cria o cliente Rekognition diretamente
+	rekognitionClient := rekognition.New(rekognition.Options{
+		Region: config.AWS.Region,
+		Credentials: recognition.NewStaticCredentialsProvider(
+			config.AWS.AccessKeyID,
+			config.AWS.SecretAccessKey,
+			"",
+		),
+	})
+	rekognitionService := recognition.NewRekognitionService(rekognitionClient, zapLogger)
+
+	// Inicializa o produtor NATS
+	producerConfig := messaging.ProducerConfig{
+		URL:               config.NATS.URL,
+		RetryAttempts:     config.NATS.RetryAttempts,
+		RetryDelaySeconds: config.NATS.RetryDelaySeconds,
+		DeadLetterTopic:   config.NATS.DeadLetterTopic,
 	}
 
-	router := setupRouter(cfg, db, zapLogger, redisCache, rekognitionService)
+	producer, err := messaging.NewProducer(producerConfig, zapLogger)
+	if err != nil {
+		zapLogger.Fatal("Erro ao inicializar produtor NATS", zap.Error(err))
+	}
+	defer producer.Close()
 
-	zapLogger.Info("Servidor iniciado", zap.String("porta", cfg.Server.Port))
-	log.Fatal(router.Run(":" + cfg.Server.Port))
+	router := setupRouter(config, db, zapLogger, redisCache, rekognitionService, producer)
+
+	zapLogger.Info("Servidor iniciado", zap.String("porta", config.Server.Port))
+	log.Fatal(router.Run(":" + config.Server.Port))
 }
 
-func setupRouter(cfg *config.Config, db *gorm.DB, zapLogger *zap.Logger, redisCache cache.RedisCache, rekognitionService recognition.RekognitionService) *gin.Engine {
+func setupRouter(config *cfg.Config, db *gorm.DB, zapLogger *zap.Logger, redisCache cache.RedisCache, rekognitionService recognition.RekognitionService, producer *messaging.Producer) *gin.Engine {
 	router := gin.New()
 
 	router.Use(gin.Recovery())
 	router.Use(middleware.LoggerMiddleware(zapLogger))
 
 	telemetryRepository := repositories.NewPostgresTelemetryRepository(db)
-	telemetryService := services.NewTelemetryService(telemetryRepository, rekognitionService, redisCache, zapLogger)
+	
+	telemetryServiceConfig := services.TelemetryServiceConfig{
+		GyroscopeTopic: config.NATS.GyroscopeTopic,
+		GPSTopic:       config.NATS.GPSTopic,
+		PhotoTopic:     config.NATS.PhotoTopic,
+	}
+	
+	telemetryService := services.NewTelemetryService(
+		telemetryRepository,
+		producer,
+		telemetryServiceConfig,
+		zapLogger,
+	)
+	
 	telemetryHandler := handlers.NewTelemetryHandler(telemetryService, zapLogger)
 
 	telemetryGroup := router.Group("/telemetry")

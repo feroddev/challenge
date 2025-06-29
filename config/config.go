@@ -2,6 +2,7 @@ package config
 
 import (
 	"os"
+	"strconv"
 )
 
 type Config struct {
@@ -9,6 +10,7 @@ type Config struct {
 	DB     DatabaseConfig
 	Redis  RedisConfig
 	AWS    AWSConfig
+	NATS   NATSConfig
 }
 
 type ServerConfig struct {
@@ -37,6 +39,16 @@ type AWSConfig struct {
 	SecretAccessKey string
 }
 
+type NATSConfig struct {
+	URL               string
+	GyroscopeTopic    string
+	GPSTopic          string
+	PhotoTopic        string
+	RetryAttempts     int
+	RetryDelaySeconds int
+	DeadLetterTopic   string
+}
+
 func NewConfig() *Config {
 	return &Config{
 		Server: ServerConfig{
@@ -61,12 +73,33 @@ func NewConfig() *Config {
 			AccessKeyID:     getEnv("AWS_ACCESS_KEY_ID", ""),
 			SecretAccessKey: getEnv("AWS_SECRET_ACCESS_KEY", ""),
 		},
+		NATS: NATSConfig{
+			URL:               getEnv("NATS_URL", "nats://localhost:4222"),
+			GyroscopeTopic:    getEnv("NATS_GYROSCOPE_TOPIC", "gyroscope.telemetry"),
+			GPSTopic:          getEnv("NATS_GPS_TOPIC", "gps.telemetry"),
+			PhotoTopic:        getEnv("NATS_PHOTO_TOPIC", "photo.telemetry"),
+			RetryAttempts:     getEnvAsInt("NATS_RETRY_ATTEMPTS", 3),
+			RetryDelaySeconds: getEnvAsInt("NATS_RETRY_DELAY", 5),
+			DeadLetterTopic:   getEnv("NATS_DEAD_LETTER_TOPIC", "telemetry.deadletter"),
+		},
 	}
 }
 
 func getEnv(key, defaultValue string) string {
 	value := os.Getenv(key)
 	if value == "" {
+		return defaultValue
+	}
+	return value
+}
+
+func getEnvAsInt(key string, defaultValue int) int {
+	valueStr := getEnv(key, "")
+	if valueStr == "" {
+		return defaultValue
+	}
+	value, err := strconv.Atoi(valueStr)
+	if err != nil {
 		return defaultValue
 	}
 	return value
