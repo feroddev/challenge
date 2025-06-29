@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -25,7 +24,8 @@ func main() {
 	}
 
 	config := cfg.NewConfig()
-	zapLogger, err := logger.NewLogger(config.Server.Environment)
+	isDevelopment := config.Server.Environment == "development"
+	zapLogger, err := logger.NewLogger(isDevelopment)
 	if err != nil {
 		fmt.Printf("Erro ao criar logger: %v\n", err)
 		os.Exit(1)

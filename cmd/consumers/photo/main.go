@@ -9,9 +9,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/rekognition"
-	"github.com/go-redis/redis/v8"
 	"github.com/joho/godotenv"
 	"go.uber.org/zap"
 	"gorm.io/driver/postgres"
@@ -31,7 +30,8 @@ func main() {
 	}
 
 	config := cfg.NewConfig()
-	zapLogger, err := logger.NewLogger(config.Server.Environment)
+	isDevelopment := config.Server.Environment == "development"
+	zapLogger, err := logger.NewLogger(isDevelopment)
 	if err != nil {
 		fmt.Printf("Erro ao criar logger: %v\n", err)
 		os.Exit(1)
@@ -46,22 +46,24 @@ func main() {
 		zapLogger.Fatal("Erro ao conectar ao banco de dados", zap.Error(err))
 	}
 
-	redisClient := redis.NewClient(&redis.Options{
-		Addr:     config.Redis.Addr,
-		Password: config.Redis.Password,
-		DB:       config.Redis.DB,
-	})
-
 	ctx := context.Background()
-	if _, err := redisClient.Ping(ctx).Result(); err != nil {
-		zapLogger.Fatal("Erro ao conectar ao Redis", zap.Error(err))
-	}
+	
+	redisCache := cache.NewRedisCache(
+		config.Redis.Addr,
+		config.Redis.Password,
+		config.Redis.DB,
+		zapLogger,
+	)
 
-	redisCache := cache.NewRedisCache(redisClient, zapLogger)
+	credProvider := recognition.NewStaticCredentialsProvider(
+		config.AWS.AccessKeyID,
+		config.AWS.SecretAccessKey,
+		"", // Token vazio
+	)
 
-	awsCfg, err := config.LoadDefaultConfig(ctx, config.WithRegion(config.AWS.Region))
-	if err != nil {
-		zapLogger.Fatal("Erro ao carregar configuração da AWS", zap.Error(err))
+	awsCfg := aws.Config{
+		Region:      config.AWS.Region,
+		Credentials: credProvider,
 	}
 
 	rekognitionClient := rekognition.NewFromConfig(awsCfg)
@@ -128,10 +130,11 @@ func processPhotoRecognition(
 	cacheKey := fmt.Sprintf("photos:%s", photo.DeviceID)
 	
 	var previousPhotos []core.Photo
+	var cachedPhotosStr string
 	
-	cachedPhotos, err := cache.Get(ctx, cacheKey)
+	err := cache.Get(ctx, cacheKey, &cachedPhotosStr)
 	if err == nil {
-		if err := json.Unmarshal([]byte(cachedPhotos), &previousPhotos); err != nil {
+		if err := json.Unmarshal([]byte(cachedPhotosStr), &previousPhotos); err != nil {
 			logger.Error("Erro ao deserializar fotos do cache", zap.Error(err))
 		}
 	}
@@ -166,12 +169,16 @@ func processPhotoRecognition(
 	recognized := false
 	
 	for _, prevPhoto := range previousPhotos {
-		similarity, err := recognitionService.CompareFaces(ctx, photo.Data, prevPhoto.Data)
+		isMatch, similarity, err := recognitionService.CompareFaces(ctx, []byte(photo.Photo), []byte(prevPhoto.Photo))
 		if err != nil {
 			logger.Error("Erro ao comparar faces",
 				zap.Error(err),
 				zap.Uint("current_photo_id", photo.ID),
 				zap.Uint("previous_photo_id", prevPhoto.ID))
+			continue
+		}
+		
+		if !isMatch {
 			continue
 		}
 		
