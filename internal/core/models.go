@@ -2,8 +2,6 @@ package core
 
 import (
 	"time"
-
-	"gorm.io/gorm"
 )
 
 type Gyroscope struct {
