@@ -16,8 +16,14 @@ services:
       DB_PASSWORD: postgres
       DB_NAME: telemetry
       DB_SSLMODE: disable
+      REDIS_ADDR: redis:6379
+      REDIS_PASSWORD: ""
+      AWS_REGION: us-east-1
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
     depends_on:
       - postgres
+      - redis
     networks:
       - telemetry_network
     restart: unless-stopped
@@ -54,9 +60,26 @@ services:
     networks:
       - telemetry_network
 
+  redis:
+    image: redis:7
+    container_name: telemetry_redis
+    ports:
+      - "6379:6379"
+    networks:
+      - telemetry_network
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
 networks:
   telemetry_network:
     driver: bridge
 
 volumes:
   postgres_data:
+  redis_data:

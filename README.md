@@ -24,6 +24,17 @@ Este repositório contém três desafios diferentes, cada um focado em uma área
    
 ### Endpoints
 
+## Funcionalidades
+
+- Receber dados de giroscópio (x, y, z)
+- Receber dados de GPS (latitude, longitude)
+- Receber fotos em formato base64
+- Persistência em PostgreSQL
+- Cache com Redis
+- Reconhecimento facial com AWS Rekognition
+- Logs estruturados com Zap
+- Endpoints GET para consulta dos dados
+
 #### Endpoints para envio de dados
 
 - `POST /telemetry/gyroscope` - Recebe dados do giroscópio

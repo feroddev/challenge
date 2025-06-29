@@ -1,6 +1,9 @@
-FROM golang:1.21-alpine AS builder
+FROM golang:1.22-alpine AS builder
 
 WORKDIR /app
+
+# Instala dependências do sistema
+RUN apk add --no-cache git
 
 COPY go.mod go.sum ./
 RUN go mod download
