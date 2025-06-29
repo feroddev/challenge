@@ -34,6 +34,9 @@ Este repositório contém três desafios diferentes, cada um focado em uma área
 - Reconhecimento facial com AWS Rekognition
 - Logs estruturados com Zap
 - Endpoints GET para consulta dos dados
+- Sistema de mensagens assíncronas com NATS
+- Processamento assíncrono de telemetria com consumidores dedicados
+- Mecanismo de retry e dead-letter para mensagens
 
 #### Endpoints para envio de dados
 
@@ -58,12 +61,34 @@ Este repositório contém três desafios diferentes, cada um focado em uma área
 - `scripts/run_local_tests.sh` - Executa os testes unitários e de integração localmente
 - `scripts/docker_start.sh` - Inicia todos os serviços usando Docker Compose
 - `scripts/test_docker.sh` - Inicia os serviços com Docker Compose e testa todos os endpoints
+- `scripts/run_services.sh` - Inicia a API e todos os consumidores NATS em um único comando
 
 Documentação completa da API disponível em [docs/api.md](docs/api.md)
 
+Documentação do sistema de mensagens NATS disponível em [docs/nats.md](docs/nats.md)
+
+### Sistema de Mensagens NATS
+
+A API utiliza NATS como sistema de mensagens para processamento assíncrono de telemetria:
+
+- **Produtor**: A API publica mensagens nos tópicos quando recebe dados de telemetria
+  - `gyroscope.telemetry`: Dados do giroscópio
+  - `gps.telemetry`: Dados de GPS
+  - `photo.telemetry`: Dados de fotos
+
+- **Consumidores**: Serviços independentes que processam as mensagens
+  - Consumidor de giroscópio: Persiste dados no PostgreSQL
+  - Consumidor de GPS: Persiste dados no PostgreSQL
+  - Consumidor de fotos: Persiste dados e processa reconhecimento facial
+
+- **Mecanismos de Resiliência**:
+  - Retry automático em caso de falha no processamento
+  - Envio para tópico dead-letter após tentativas esgotadas
+  - Logs detalhados de todo o ciclo de vida das mensagens
+
 ### Docker
 
-A aplicação pode ser executada facilmente com Docker Compose, que configura tanto a API quanto o banco de dados PostgreSQL:
+A aplicação pode ser executada facilmente com Docker Compose, que configura a API, os consumidores, o banco de dados PostgreSQL, Redis e NATS:
 
 ```bash
 ./scripts/docker_start.sh
