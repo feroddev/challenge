@@ -22,8 +22,6 @@ Este repositório contém três desafios diferentes, cada um focado em uma área
 2. [Desafio Backend](CLOUD.md)
 3. [Desafio Firmware](FIRMWARE.md)
    
-### Endpoints
-
 ## Funcionalidades
 
 - Receber dados de giroscópio (x, y, z)
@@ -37,6 +35,11 @@ Este repositório contém três desafios diferentes, cada um focado em uma área
 - Sistema de mensagens assíncronas com NATS
 - Processamento assíncrono de telemetria com consumidores dedicados
 - Mecanismo de retry e dead-letter para mensagens
+- Métricas com Prometheus
+- Tracing com OpenTelemetry
+- Documentação Swagger
+
+### Endpoints
 
 #### Endpoints para envio de dados
 
@@ -48,6 +51,12 @@ Este repositório contém três desafios diferentes, cada um focado em uma área
 
 - `GET /telemetry/gyroscope` - Retorna todos os dados do giroscópio
 - `GET /telemetry/gps` - Retorna todos os dados de GPS
+- `GET /telemetry/photo` - Retorna todas as fotos
+
+#### Endpoints de monitoramento
+
+- `GET /metrics` - Métricas Prometheus
+- `GET /swagger/*any` - Documentação Swagger
 - `GET /telemetry/photo` - Retorna todos os dados de fotos
 
 ### Scripts

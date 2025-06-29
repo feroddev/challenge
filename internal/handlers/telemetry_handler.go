@@ -5,9 +5,13 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github/feroddev/challengeV3/internal/core"
-	"github/feroddev/challengeV3/internal/services"
+	"go.opentelemetry.io/otel/attribute"
 	"go.uber.org/zap"
+
+	"github/feroddev/challengeV3/internal/core"
+	"github/feroddev/challengeV3/internal/pkg/metrics"
+	"github/feroddev/challengeV3/internal/pkg/tracing"
+	"github/feroddev/challengeV3/internal/services"
 )
 
 type TelemetryHandler struct {
@@ -22,6 +26,17 @@ func NewTelemetryHandler(telemetryService services.TelemetryService, logger *zap
 	}
 }
 
+// HandleGyroscopeData recebe dados do giroscópio e salva no repositório
+// @Summary Receber dados do giroscópio
+// @Description Recebe e salva dados do giroscópio de dispositivos
+// @Tags telemetria
+// @Accept json
+// @Produce json
+// @Param data body core.Gyroscope true "Dados do giroscópio"
+// @Success 201 {object} map[string]string "Mensagem de sucesso"
+// @Failure 400 {object} map[string]string "Erro de validação"
+// @Failure 500 {object} map[string]string "Erro interno"
+// @Router /telemetry/gyroscope [post]
 func (h *TelemetryHandler) HandleGyroscopeData(c *gin.Context) {
 	var gyroscopeData core.Gyroscope
 	if err := c.ShouldBindJSON(&gyroscopeData); err != nil {
@@ -42,6 +57,17 @@ func (h *TelemetryHandler) HandleGyroscopeData(c *gin.Context) {
 	c.JSON(http.StatusCreated, gin.H{"message": "Dados do giroscópio recebidos com sucesso"})
 }
 
+// HandleGPSData recebe dados de GPS e salva no repositório
+// @Summary Receber dados de GPS
+// @Description Recebe e salva dados de GPS de dispositivos
+// @Tags telemetria
+// @Accept json
+// @Produce json
+// @Param data body core.GPS true "Dados de GPS"
+// @Success 201 {object} map[string]string "Mensagem de sucesso"
+// @Failure 400 {object} map[string]string "Erro de validação"
+// @Failure 500 {object} map[string]string "Erro interno"
+// @Router /telemetry/gps [post]
 func (h *TelemetryHandler) HandleGPSData(c *gin.Context) {
 	var gpsData core.GPS
 	if err := c.ShouldBindJSON(&gpsData); err != nil {
@@ -62,6 +88,17 @@ func (h *TelemetryHandler) HandleGPSData(c *gin.Context) {
 	c.JSON(http.StatusCreated, gin.H{"message": "Dados do GPS recebidos com sucesso"})
 }
 
+// HandlePhotoData recebe dados de foto e salva no repositório
+// @Summary Receber dados de foto
+// @Description Recebe e salva dados de foto de dispositivos
+// @Tags telemetria
+// @Accept json
+// @Produce json
+// @Param data body core.Photo true "Dados da foto"
+// @Success 201 {object} map[string]string "Mensagem de sucesso"
+// @Failure 400 {object} map[string]string "Erro de validação"
+// @Failure 500 {object} map[string]string "Erro interno"
+// @Router /telemetry/photo [post]
 func (h *TelemetryHandler) HandlePhotoData(c *gin.Context) {
 	var photoData core.Photo
 	if err := c.ShouldBindJSON(&photoData); err != nil {

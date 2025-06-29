@@ -1,0 +1,40 @@
+package middleware
+
+import (
+	"github.com/gin-gonic/gin"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/propagation"
+	"go.opentelemetry.io/otel/trace"
+	"github/feroddev/challengeV3/internal/pkg/tracing"
+)
+
+func OpenTelemetryMiddleware(serviceName string) gin.HandlerFunc {
+	tracer := otel.Tracer(serviceName)
+	
+	return func(c *gin.Context) {
+		ctx := c.Request.Context()
+		
+		carrier := propagation.HeaderCarrier(c.Request.Header)
+		ctx = otel.GetTextMapPropagator().Extract(ctx, carrier)
+		
+		spanCtx, span := tracer.Start(
+			ctx,
+			c.FullPath(),
+			trace.WithAttributes(
+				attribute.String("http.method", c.Request.Method),
+				attribute.String("http.url", c.Request.URL.String()),
+				attribute.String("http.host", c.Request.Host),
+				attribute.String("http.user_agent", c.Request.UserAgent()),
+			),
+		)
+		defer span.End()
+		
+		c.Request = c.Request.WithContext(spanCtx)
+		c.Next()
+		
+		span.SetAttributes(
+			attribute.Int("http.status_code", c.Writer.Status()),
+		)
+	}
+}
