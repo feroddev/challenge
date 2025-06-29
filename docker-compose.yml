@@ -1,6 +1,27 @@
 version: '3.8'
 
 services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: telemetry_api
+    ports:
+      - "8080:8080"
+    environment:
+      PORT: 8080
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      DB_NAME: telemetry
+      DB_SSLMODE: disable
+    depends_on:
+      - postgres
+    networks:
+      - telemetry_network
+    restart: unless-stopped
+
   postgres:
     image: postgres:14
     container_name: telemetry_postgres
@@ -15,6 +36,11 @@ services:
       - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
     networks:
       - telemetry_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   postgres_test:
     image: postgres:14
