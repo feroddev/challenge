@@ -45,8 +45,38 @@ Este repositório contém três desafios diferentes, cada um focado em uma área
 - `scripts/start_postgres.sh` - Inicia o PostgreSQL localmente usando Docker
 - `scripts/run_app.sh` - Compila e executa a aplicação localmente
 - `scripts/run_local_tests.sh` - Executa os testes unitários e de integração localmente
+- `scripts/docker_start.sh` - Inicia todos os serviços usando Docker Compose
+- `scripts/test_docker.sh` - Inicia os serviços com Docker Compose e testa todos os endpoints
 
 Documentação completa da API disponível em [docs/api.md](docs/api.md)
+
+### Docker
+
+A aplicação pode ser executada facilmente com Docker Compose, que configura tanto a API quanto o banco de dados PostgreSQL:
+
+```bash
+./scripts/docker_start.sh
+```
+
+Ou manualmente:
+
+```bash
+docker-compose up -d
+```
+
+A API estará disponível em http://localhost:8080
+
+### CI/CD com GitHub Actions
+
+O projeto está configurado com GitHub Actions para:
+
+1. Executar testes unitários em cada push e pull request
+2. Construir e publicar a imagem Docker no Docker Hub quando há push na branch main
+
+Para configurar o CI/CD, adicione os seguintes secrets no repositório GitHub:
+
+- `DOCKERHUB_USERNAME`: Seu nome de usuário do Docker Hub
+- `DOCKERHUB_TOKEN`: Token de acesso do Docker Hub
 
 ## Poxa, outro teste?
 
