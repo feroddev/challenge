@@ -12,6 +12,8 @@ type TelemetryRepository interface {
 	GetGyroscopeData() ([]core.Gyroscope, error)
 	GetGPSData() ([]core.GPS, error)
 	GetPhotoData() ([]core.Photo, error)
+	GetPhotosByDeviceID(deviceID string) ([]core.Photo, error)
+	UpdatePhotoRecognition(id uint, recognized bool, similarity float32) error
 }
 
 type PostgresTelemetryRepository struct {
@@ -49,7 +51,21 @@ func (r *PostgresTelemetryRepository) GetGPSData() ([]core.GPS, error) {
 }
 
 func (r *PostgresTelemetryRepository) GetPhotoData() ([]core.Photo, error) {
-	var photoData []core.Photo
-	result := r.db.Find(&photoData)
-	return photoData, result.Error
+	var photos []core.Photo
+	result := r.db.Find(&photos)
+	return photos, result.Error
+}
+
+func (r *PostgresTelemetryRepository) GetPhotosByDeviceID(deviceID string) ([]core.Photo, error) {
+	var photos []core.Photo
+	result := r.db.Where("device_id = ?", deviceID).Order("created_at DESC").Find(&photos)
+	return photos, result.Error
+}
+
+func (r *PostgresTelemetryRepository) UpdatePhotoRecognition(id uint, recognized bool, similarity float32) error {
+	result := r.db.Model(&core.Photo{}).Where("id = ?", id).Updates(map[string]interface{}{
+		"recognized": recognized,
+		"similarity": similarity,
+	})
+	return result.Error
 }
