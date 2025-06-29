@@ -13,7 +13,7 @@ import (
 	"gorm.io/gorm"
 
 	cfg "github/feroddev/challengeV3/config"
-	"github/feroddev/challengeV3/internal/models"
+	"github/feroddev/challengeV3/internal/core"
 	"github/feroddev/challengeV3/internal/pkg/logger"
 	"github/feroddev/challengeV3/internal/pkg/messaging"
 )
@@ -56,7 +56,7 @@ func main() {
 		zap.String("topic", config.NATS.GPSTopic))
 
 	err = consumer.Subscribe(config.NATS.GPSTopic, func(data []byte) error {
-		var gpsData models.GPS
+		var gpsData core.GPS
 		if err := json.Unmarshal(data, &gpsData); err != nil {
 			return fmt.Errorf("erro ao deserializar dados do GPS: %w", err)
 		}

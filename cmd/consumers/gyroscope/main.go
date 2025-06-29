@@ -14,7 +14,7 @@ import (
 	"gorm.io/gorm"
 
 	cfg "github/feroddev/challengeV3/config"
-	"github/feroddev/challengeV3/internal/models"
+	"github/feroddev/challengeV3/internal/core"
 	"github/feroddev/challengeV3/internal/pkg/logger"
 	"github/feroddev/challengeV3/internal/pkg/messaging"
 )
@@ -57,7 +57,7 @@ func main() {
 		zap.String("topic", config.NATS.GyroscopeTopic))
 
 	err = consumer.Subscribe(config.NATS.GyroscopeTopic, func(data []byte) error {
-		var gyroscopeData models.Gyroscope
+		var gyroscopeData core.Gyroscope
 		if err := json.Unmarshal(data, &gyroscopeData); err != nil {
 			return fmt.Errorf("erro ao deserializar dados do giroscópio: %w", err)
 		}

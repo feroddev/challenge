@@ -18,7 +18,7 @@ import (
 	"gorm.io/gorm"
 
 	cfg "github/feroddev/challengeV3/config"
-	"github/feroddev/challengeV3/internal/models"
+	"github/feroddev/challengeV3/internal/core"
 	"github/feroddev/challengeV3/internal/pkg/cache"
 	"github/feroddev/challengeV3/internal/pkg/logger"
 	"github/feroddev/challengeV3/internal/pkg/messaging"
@@ -84,14 +84,14 @@ func main() {
 		zap.String("topic", config.NATS.PhotoTopic))
 
 	err = consumer.Subscribe(config.NATS.PhotoTopic, func(data []byte) error {
-		var photoData models.Photo
+		var photoData core.Photo
 		if err := json.Unmarshal(data, &photoData); err != nil {
 			return fmt.Errorf("erro ao deserializar dados da foto: %w", err)
 		}
 
 		zapLogger.Info("Processando dados de foto",
 			zap.String("device_id", photoData.DeviceID),
-			zap.Int("data_length", len(photoData.Data)))
+			zap.Int("photo_length", len(photoData.Photo)))
 
 		if result := db.Create(&photoData); result.Error != nil {
 			return fmt.Errorf("erro ao salvar dados da foto: %w", result.Error)
@@ -120,14 +120,14 @@ func main() {
 func processPhotoRecognition(
 	ctx context.Context,
 	db *gorm.DB,
-	cache *cache.RedisCache,
-	recognitionService *recognition.RekognitionService,
-	photo models.Photo,
+	cache cache.RedisCache,
+	recognitionService recognition.RekognitionService,
+	photo core.Photo,
 	logger *zap.Logger,
 ) {
 	cacheKey := fmt.Sprintf("photos:%s", photo.DeviceID)
 	
-	var previousPhotos []models.Photo
+	var previousPhotos []core.Photo
 	
 	cachedPhotos, err := cache.Get(ctx, cacheKey)
 	if err == nil {
@@ -137,7 +137,7 @@ func processPhotoRecognition(
 	}
 	
 	if len(previousPhotos) == 0 {
-		var dbPhotos []models.Photo
+		var dbPhotos []core.Photo
 		result := db.Where("device_id = ? AND id != ?", photo.DeviceID, photo.ID).
 			Order("created_at desc").
 			Limit(5).
