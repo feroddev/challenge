@@ -9,9 +9,47 @@ import (
 	"go.uber.org/zap"
 
 	"github/feroddev/challengeV3/internal/core"
-	"github/feroddev/challengeV3/internal/pkg/messaging"
 	"github/feroddev/challengeV3/internal/services"
 )
+
+type MockTelemetryRepository struct {
+	mock.Mock
+}
+
+func (m *MockTelemetryRepository) SaveGyroscope(gyroscope core.Gyroscope) error {
+	args := m.Called(gyroscope)
+	return args.Error(0)
+}
+
+func (m *MockTelemetryRepository) SaveGPS(gps core.GPS) error {
+	args := m.Called(gps)
+	return args.Error(0)
+}
+
+func (m *MockTelemetryRepository) SavePhoto(photo core.Photo) error {
+	args := m.Called(photo)
+	return args.Error(0)
+}
+
+func (m *MockTelemetryRepository) GetGyroscopeByDeviceID(deviceID string) ([]core.Gyroscope, error) {
+	args := m.Called(deviceID)
+	return args.Get(0).([]core.Gyroscope), args.Error(1)
+}
+
+func (m *MockTelemetryRepository) GetGPSByDeviceID(deviceID string) ([]core.GPS, error) {
+	args := m.Called(deviceID)
+	return args.Get(0).([]core.GPS), args.Error(1)
+}
+
+func (m *MockTelemetryRepository) GetPhotosByDeviceID(deviceID string) ([]core.Photo, error) {
+	args := m.Called(deviceID)
+	return args.Get(0).([]core.Photo), args.Error(1)
+}
+
+func (m *MockTelemetryRepository) UpdatePhotoRecognition(photoID int64, recognized bool, similarity float32) error {
+	args := m.Called(photoID, recognized, similarity)
+	return args.Error(0)
+}
 
 type MockRekognitionClient struct {
 	mock.Mock
@@ -39,12 +77,23 @@ func (m *MockRedisCache) Set(key string, value interface{}, expiration time.Dura
 	return args.Error(0)
 }
 
+type MockProducer struct {
+	mock.Mock
+}
+
+func (m *MockProducer) Publish(topic string, data interface{}) error {
+	args := m.Called(topic, data)
+	return args.Error(0)
+}
+
+func (m *MockProducer) Close() error {
+	args := m.Called()
+	return args.Error(0)
+}
+
 func TestProcessPhotoRecognition(t *testing.T) {
 	mockRepo := new(MockTelemetryRepository)
-	mockProducer, err := newMockProducer()
-	if err != nil {
-		t.Skip("Erro ao criar mock do produtor NATS, pulando teste")
-	}
+	mockProducer := new(MockProducer)
 	
 	mockRekognition := new(MockRekognitionClient)
 	mockCache := new(MockRedisCache)
@@ -58,7 +107,7 @@ func TestProcessPhotoRecognition(t *testing.T) {
 	
 	service := services.NewTelemetryServiceWithRecognition(
 		mockRepo,
-		mockProducer.producer,
+		mockProducer,
 		mockRekognition,
 		mockCache,
 		config,
@@ -70,14 +119,14 @@ func TestProcessPhotoRecognition(t *testing.T) {
 	
 	photo1 := core.Photo{
 		ID:        1,
-		Photo:     []byte("test-photo-1"),
+		Photo:     "dGVzdC1waG90by0x",
 		Timestamp: now.Add(-time.Hour),
 		DeviceID:  deviceID,
 	}
 	
 	photo2 := core.Photo{
 		ID:        2,
-		Photo:     []byte("test-photo-2"),
+		Photo:     "dGVzdC1waG90by0y",
 		Timestamp: now,
 		DeviceID:  deviceID,
 	}
@@ -85,12 +134,12 @@ func TestProcessPhotoRecognition(t *testing.T) {
 	photos := []core.Photo{photo1}
 	
 	mockRepo.On("GetPhotosByDeviceID", deviceID).Return(photos, nil)
-	mockRekognition.On("CompareFaces", photo1.Photo, photo2.Photo).Return(float32(0.95), nil)
+	mockRekognition.On("CompareFaces", mock.Anything, mock.Anything).Return(float32(0.95), nil)
 	mockRepo.On("UpdatePhotoRecognition", photo2.ID, true, float32(0.95)).Return(nil)
 	mockCache.On("Get", mock.Anything).Return(nil, core.ErrCacheMiss)
 	mockCache.On("Set", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 	
-	err = service.ProcessPhotoRecognition(photo2)
+	err := service.ProcessPhotoRecognition(photo2)
 	
 	assert.NoError(t, err)
 	mockRepo.AssertExpectations(t)
@@ -100,10 +149,7 @@ func TestProcessPhotoRecognition(t *testing.T) {
 
 func TestProcessPhotoRecognitionWithCache(t *testing.T) {
 	mockRepo := new(MockTelemetryRepository)
-	mockProducer, err := newMockProducer()
-	if err != nil {
-		t.Skip("Erro ao criar mock do produtor NATS, pulando teste")
-	}
+	mockProducer := new(MockProducer)
 	
 	mockRekognition := new(MockRekognitionClient)
 	mockCache := new(MockRedisCache)
@@ -117,7 +163,7 @@ func TestProcessPhotoRecognitionWithCache(t *testing.T) {
 	
 	service := services.NewTelemetryServiceWithRecognition(
 		mockRepo,
-		mockProducer.producer,
+		mockProducer,
 		mockRekognition,
 		mockCache,
 		config,
@@ -129,7 +175,7 @@ func TestProcessPhotoRecognitionWithCache(t *testing.T) {
 	
 	photo := core.Photo{
 		ID:        2,
-		Photo:     []byte("test-photo-2"),
+		Photo:     "dGVzdC1waG90by0y",
 		Timestamp: now,
 		DeviceID:  deviceID,
 	}
@@ -142,7 +188,7 @@ func TestProcessPhotoRecognitionWithCache(t *testing.T) {
 	mockCache.On("Get", mock.Anything).Return(cacheResult, nil)
 	mockRepo.On("UpdatePhotoRecognition", photo.ID, true, float32(0.95)).Return(nil)
 	
-	err = service.ProcessPhotoRecognition(photo)
+	err := service.ProcessPhotoRecognition(photo)
 	
 	assert.NoError(t, err)
 	mockCache.AssertExpectations(t)
@@ -152,10 +198,7 @@ func TestProcessPhotoRecognitionWithCache(t *testing.T) {
 
 func TestProcessPhotoRecognitionNoMatch(t *testing.T) {
 	mockRepo := new(MockTelemetryRepository)
-	mockProducer, err := newMockProducer()
-	if err != nil {
-		t.Skip("Erro ao criar mock do produtor NATS, pulando teste")
-	}
+	mockProducer := new(MockProducer)
 	
 	mockRekognition := new(MockRekognitionClient)
 	mockCache := new(MockRedisCache)
@@ -169,7 +212,7 @@ func TestProcessPhotoRecognitionNoMatch(t *testing.T) {
 	
 	service := services.NewTelemetryServiceWithRecognition(
 		mockRepo,
-		mockProducer.producer,
+		mockProducer,
 		mockRekognition,
 		mockCache,
 		config,
@@ -181,14 +224,14 @@ func TestProcessPhotoRecognitionNoMatch(t *testing.T) {
 	
 	photo1 := core.Photo{
 		ID:        1,
-		Photo:     []byte("test-photo-1"),
+		Photo:     "dGVzdC1waG90by0x",
 		Timestamp: now.Add(-time.Hour),
 		DeviceID:  deviceID,
 	}
 	
 	photo2 := core.Photo{
 		ID:        2,
-		Photo:     []byte("test-photo-2"),
+		Photo:     "dGVzdC1waG90by0y",
 		Timestamp: now,
 		DeviceID:  deviceID,
 	}
@@ -196,12 +239,12 @@ func TestProcessPhotoRecognitionNoMatch(t *testing.T) {
 	photos := []core.Photo{photo1}
 	
 	mockRepo.On("GetPhotosByDeviceID", deviceID).Return(photos, nil)
-	mockRekognition.On("CompareFaces", photo1.Photo, photo2.Photo).Return(float32(0.30), nil)
+	mockRekognition.On("CompareFaces", mock.Anything, mock.Anything).Return(float32(0.30), nil)
 	mockRepo.On("UpdatePhotoRecognition", photo2.ID, false, float32(0.30)).Return(nil)
 	mockCache.On("Get", mock.Anything).Return(nil, core.ErrCacheMiss)
 	mockCache.On("Set", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 	
-	err = service.ProcessPhotoRecognition(photo2)
+	err := service.ProcessPhotoRecognition(photo2)
 	
 	assert.NoError(t, err)
 	mockRepo.AssertExpectations(t)

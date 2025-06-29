@@ -7,7 +7,6 @@ import (
 	"go.uber.org/zap"
 
 	"github/feroddev/challengeV3/internal/core"
-	"github/feroddev/challengeV3/internal/pkg/messaging"
 	"github/feroddev/challengeV3/internal/repositories"
 )
 
@@ -22,7 +21,7 @@ type TelemetryService interface {
 
 type telemetryService struct {
 	repository repositories.TelemetryRepository
-	producer   *messaging.Producer
+	producer   core.Producer
 	config     TelemetryServiceConfig
 	logger     *zap.Logger
 }
@@ -35,7 +34,7 @@ type TelemetryServiceConfig struct {
 
 func NewTelemetryService(
 	repository repositories.TelemetryRepository,
-	producer *messaging.Producer,
+	producer core.Producer,
 	config TelemetryServiceConfig,
 	logger *zap.Logger,
 ) TelemetryService {

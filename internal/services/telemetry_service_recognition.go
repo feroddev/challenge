@@ -1,6 +1,7 @@
 package services
 
 import (
+	"encoding/base64"
 	"fmt"
 	"time"
 
@@ -97,7 +98,19 @@ func (s *telemetryServiceWithRecognition) ProcessPhotoRecognition(photo core.Pho
 			continue
 		}
 
-		similarity, err := s.rekognition.CompareFaces(prevPhoto.Photo, photo.Photo)
+		sourceBytes, err := base64.StdEncoding.DecodeString(prevPhoto.Photo)
+		if err != nil {
+			s.logger.Error("Erro ao decodificar foto de origem", zap.Error(err))
+			continue
+		}
+		
+		targetBytes, err := base64.StdEncoding.DecodeString(photo.Photo)
+		if err != nil {
+			s.logger.Error("Erro ao decodificar foto alvo", zap.Error(err))
+			continue
+		}
+		
+		similarity, err := s.rekognition.CompareFaces(sourceBytes, targetBytes)
 		if err != nil {
 			s.logger.Error("Erro ao comparar faces", zap.Error(err))
 			continue

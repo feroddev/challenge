@@ -1,6 +1,10 @@
 package core
 
-import "errors"
+import (
+	"context"
+	"errors"
+	"time"
+)
 
 var ErrCacheMiss = errors.New("cache miss")
 
@@ -22,5 +26,6 @@ type TelemetryRepository interface {
 
 type Producer interface {
 	Publish(topic string, data interface{}) error
+	PublishWithRetry(ctx context.Context, topic string, data interface{}, retries int, delay time.Duration) error
 	Close() error
 }
