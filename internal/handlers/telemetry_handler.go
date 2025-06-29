@@ -1,21 +1,25 @@
 package handlers
 
 import (
+	"context"
 	"net/http"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github/feroddev/challengeV3/internal/core"
 	"github/feroddev/challengeV3/internal/services"
+	"go.uber.org/zap"
 )
 
 type TelemetryHandler struct {
 	telemetryService services.TelemetryService
+	logger          *zap.Logger
 }
 
-func NewTelemetryHandler(telemetryService services.TelemetryService) *TelemetryHandler {
+func NewTelemetryHandler(telemetryService services.TelemetryService, logger *zap.Logger) *TelemetryHandler {
 	return &TelemetryHandler{
 		telemetryService: telemetryService,
+		logger:          logger,
 	}
 }
 
@@ -65,13 +69,17 @@ func (h *TelemetryHandler) HandlePhotoData(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-
 	if photoData.Timestamp.IsZero() {
 		photoData.Timestamp = time.Now()
 	}
 
+	h.logger.Info("Recebendo dados de foto", 
+		zap.String("device_id", photoData.DeviceID),
+		zap.Time("timestamp", photoData.Timestamp))
+
 	err := h.telemetryService.SavePhotoData(photoData)
 	if err != nil {
+		h.logger.Error("Erro ao salvar dados da foto", zap.Error(err))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
@@ -100,11 +108,15 @@ func (h *TelemetryHandler) GetGPSData(c *gin.Context) {
 }
 
 func (h *TelemetryHandler) GetPhotoData(c *gin.Context) {
-	data, err := h.telemetryService.GetPhotoData()
+	h.logger.Info("Buscando dados de fotos")
+
+	photos, err := h.telemetryService.GetPhotoData()
 	if err != nil {
+		h.logger.Error("Erro ao buscar dados de fotos", zap.Error(err))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusOK, data)
+	h.logger.Info("Dados de fotos recuperados com sucesso", zap.Int("quantidade", len(photos)))
+	c.JSON(http.StatusOK, photos)
 }
