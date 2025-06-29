@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
@@ -11,70 +12,48 @@ import (
 
 type TelemetryHandler struct {
 	telemetryService services.TelemetryService
-	validator        *validator.Validate
 }
 
 func NewTelemetryHandler(telemetryService services.TelemetryService) *TelemetryHandler {
 	return &TelemetryHandler{
 		telemetryService: telemetryService,
-		validator:        validator.New(),
 	}
 }
 
 func (h *TelemetryHandler) HandleGyroscopeData(c *gin.Context) {
 	var gyroscopeData core.Gyroscope
 	if err := c.ShouldBindJSON(&gyroscopeData); err != nil {
-		c.JSON(http.StatusBadRequest, core.Response{
-			Status:  http.StatusBadRequest,
-			Message: "Erro ao processar dados do giroscópio",
-		})
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	if err := h.validator.Struct(gyroscopeData); err != nil {
-		c.JSON(http.StatusBadRequest, core.Response{
-			Status:  http.StatusBadRequest,
-			Message: "Dados do giroscópio inválidos",
-		})
+	if gyroscopeData.Timestamp.IsZero() {
+		gyroscopeData.Timestamp = time.Now()
+	}
+
+	err := h.telemetryService.SaveGyroscopeData(gyroscopeData)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	if err := h.telemetryService.SaveGyroscopeData(gyroscopeData); err != nil {
-		c.JSON(http.StatusInternalServerError, core.Response{
-			Status:  http.StatusInternalServerError,
-			Message: "Erro ao salvar dados do giroscópio",
-		})
-		return
-	}
-
-	c.JSON(http.StatusOK, core.Response{
-		Status:  http.StatusOK,
-		Message: "Dados do giroscópio recebidos com sucesso",
-	})
+	c.JSON(http.StatusCreated, gin.H{"message": "Dados do giroscópio recebidos com sucesso"})
 }
 
 func (h *TelemetryHandler) HandleGPSData(c *gin.Context) {
 	var gpsData core.GPS
 	if err := c.ShouldBindJSON(&gpsData); err != nil {
-		c.JSON(http.StatusBadRequest, core.Response{
-			Status:  http.StatusBadRequest,
-			Message: "Erro ao processar dados do GPS",
-		})
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	if err := h.validator.Struct(gpsData); err != nil {
-		c.JSON(http.StatusBadRequest, core.Response{
-			Status:  http.StatusBadRequest,
-			Message: "Dados do GPS inválidos",
-		})
-		return
+	if gpsData.Timestamp.IsZero() {
+		gpsData.Timestamp = time.Now()
 	}
 
-	if err := h.telemetryService.SaveGPSData(gpsData); err != nil {
-		c.JSON(http.StatusInternalServerError, core.Response{
-			Status:  http.StatusInternalServerError,
-			Message: "Erro ao salvar dados do GPS",
+	err := h.telemetryService.SaveGPSData(gpsData)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		})
 		return
 	}
