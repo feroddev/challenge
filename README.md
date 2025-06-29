@@ -36,6 +36,16 @@ Este repositório contém três desafios diferentes, cada um focado em uma área
 - `GET /telemetry/gps` - Retorna todos os dados de GPS
 - `GET /telemetry/photo` - Retorna todos os dados de fotos
 
+#### Scripts
+
+- `scripts/start.sh` - Inicia o container PostgreSQL e executa a aplicação
+- `scripts/test_integration.sh` - Executa os testes de integração
+- `scripts/build_and_run.sh` - Constrói e executa a aplicação em container Docker
+- `test/run_tests.sh` - Executa todos os testes
+- `scripts/start_postgres.sh` - Inicia o PostgreSQL localmente usando Docker
+- `scripts/run_app.sh` - Compila e executa a aplicação localmente
+- `scripts/run_local_tests.sh` - Executa os testes unitários e de integração localmente de fotos
+
 Documentação completa da API disponível em [docs/api.md](docs/api.md)
 
 ## Poxa, outro teste?
