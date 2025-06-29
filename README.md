@@ -76,6 +76,10 @@ Documentação completa da API disponível em [docs/api.md](docs/api.md)
 
 Documentação do sistema de mensagens NATS disponível em [docs/nats.md](docs/nats.md)
 
+### API de Telemetria
+
+API para receber e processar dados de telemetria de dispositivos Android com reconhecimento facial, monitoramento e tracing.
+
 ### Sistema de Mensagens NATS
 
 A API utiliza NATS como sistema de mensagens para processamento assíncrono de telemetria:

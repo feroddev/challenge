@@ -1,238 +1,183 @@
-swagger: "2.0"
+definitions:
+  core.GPS:
+    properties:
+      created_at:
+        type: string
+      device_id:
+        type: string
+      id:
+        type: integer
+      latitude:
+        type: number
+      longitude:
+        type: number
+      timestamp:
+        type: string
+      updated_at:
+        type: string
+    required:
+    - device_id
+    - latitude
+    - longitude
+    - timestamp
+    type: object
+  core.Gyroscope:
+    properties:
+      created_at:
+        type: string
+      device_id:
+        type: string
+      id:
+        type: integer
+      timestamp:
+        type: string
+      updated_at:
+        type: string
+      x:
+        type: number
+      "y":
+        type: number
+      z:
+        type: number
+    required:
+    - device_id
+    - timestamp
+    - x
+    - "y"
+    - z
+    type: object
+  core.Photo:
+    properties:
+      created_at:
+        type: string
+      device_id:
+        type: string
+      id:
+        type: integer
+      photo:
+        type: string
+      recognized:
+        type: boolean
+      similarity:
+        type: number
+      timestamp:
+        type: string
+      updated_at:
+        type: string
+    required:
+    - device_id
+    - photo
+    - timestamp
+    type: object
 info:
-  description: "API para receber e processar dados de telemetria de dispositivos Android"
-  version: "1.0.0"
-  title: "API de Telemetria"
-  contact:
-    email: "suporte@example.com"
-  license:
-    name: "Apache 2.0"
-    url: "http://www.apache.org/licenses/LICENSE-2.0.html"
-host: "localhost:8080"
-basePath: "/api/v1"
-tags:
-- name: "telemetria"
-  description: "Endpoints para dados de telemetria"
-- name: "monitoramento"
-  description: "Endpoints para monitoramento e métricas"
-schemes:
-- "http"
+  contact: {}
 paths:
-  /telemetry/gyroscope:
-    post:
-      tags:
-      - "telemetria"
-      summary: "Receber dados do giroscópio"
-      description: "Recebe e salva dados do giroscópio de dispositivos"
-      consumes:
-      - "application/json"
-      produces:
-      - "application/json"
-      parameters:
-      - in: "body"
-        name: "body"
-        description: "Dados do giroscópio"
-        required: true
-        schema:
-          $ref: "#/definitions/Gyroscope"
-      responses:
-        201:
-          description: "Dados recebidos com sucesso"
-          schema:
-            type: "object"
-            properties:
-              message:
-                type: "string"
-        400:
-          description: "Dados inválidos"
-        500:
-          description: "Erro interno"
-    get:
-      tags:
-      - "telemetria"
-      summary: "Obter dados do giroscópio"
-      description: "Retorna todos os dados do giroscópio armazenados"
-      produces:
-      - "application/json"
-      responses:
-        200:
-          description: "Operação bem-sucedida"
-          schema:
-            type: "array"
-            items:
-              $ref: "#/definitions/Gyroscope"
-        500:
-          description: "Erro interno"
   /telemetry/gps:
     post:
-      tags:
-      - "telemetria"
-      summary: "Receber dados de GPS"
-      description: "Recebe e salva dados de GPS de dispositivos"
       consumes:
-      - "application/json"
-      produces:
-      - "application/json"
+      - application/json
+      description: Recebe e salva dados de GPS de dispositivos
       parameters:
-      - in: "body"
-        name: "body"
-        description: "Dados de GPS"
+      - description: Dados de GPS
+        in: body
+        name: data
         required: true
         schema:
-          $ref: "#/definitions/GPS"
-      responses:
-        201:
-          description: "Dados recebidos com sucesso"
-          schema:
-            type: "object"
-            properties:
-              message:
-                type: "string"
-        400:
-          description: "Dados inválidos"
-        500:
-          description: "Erro interno"
-    get:
-      tags:
-      - "telemetria"
-      summary: "Obter dados de GPS"
-      description: "Retorna todos os dados de GPS armazenados"
+          $ref: '#/definitions/core.GPS'
       produces:
-      - "application/json"
+      - application/json
       responses:
-        200:
-          description: "Operação bem-sucedida"
+        "201":
+          description: Mensagem de sucesso
           schema:
-            type: "array"
-            items:
-              $ref: "#/definitions/GPS"
-        500:
-          description: "Erro interno"
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Erro de validação
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Erro interno
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Receber dados de GPS
+      tags:
+      - telemetria
+  /telemetry/gyroscope:
+    post:
+      consumes:
+      - application/json
+      description: Recebe e salva dados do giroscópio de dispositivos
+      parameters:
+      - description: Dados do giroscópio
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/core.Gyroscope'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Mensagem de sucesso
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Erro de validação
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Erro interno
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Receber dados do giroscópio
+      tags:
+      - telemetria
   /telemetry/photo:
     post:
-      tags:
-      - "telemetria"
-      summary: "Receber dados de foto"
-      description: "Recebe e salva dados de foto de dispositivos"
       consumes:
-      - "application/json"
-      produces:
-      - "application/json"
+      - application/json
+      description: Recebe e salva dados de foto de dispositivos
       parameters:
-      - in: "body"
-        name: "body"
-        description: "Dados da foto"
+      - description: Dados da foto
+        in: body
+        name: data
         required: true
         schema:
-          $ref: "#/definitions/Photo"
-      responses:
-        201:
-          description: "Dados recebidos com sucesso"
-          schema:
-            type: "object"
-            properties:
-              message:
-                type: "string"
-        400:
-          description: "Dados inválidos"
-        500:
-          description: "Erro interno"
-    get:
-      tags:
-      - "telemetria"
-      summary: "Obter dados de foto"
-      description: "Retorna todos os dados de foto armazenados"
+          $ref: '#/definitions/core.Photo'
       produces:
-      - "application/json"
+      - application/json
       responses:
-        200:
-          description: "Operação bem-sucedida"
+        "201":
+          description: Mensagem de sucesso
           schema:
-            type: "array"
-            items:
-              $ref: "#/definitions/Photo"
-        500:
-          description: "Erro interno"
-  /metrics:
-    get:
-      tags:
-      - "monitoramento"
-      summary: "Métricas Prometheus"
-      description: "Retorna métricas no formato Prometheus"
-      produces:
-      - "text/plain"
-      responses:
-        200:
-          description: "Operação bem-sucedida"
-  /health:
-    get:
-      tags:
-      - "monitoramento"
-      summary: "Health check"
-      description: "Verifica se a API está funcionando corretamente"
-      produces:
-      - "application/json"
-      responses:
-        200:
-          description: "API funcionando corretamente"
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Erro de validação
           schema:
-            type: "object"
-            properties:
-              status:
-                type: "string"
-definitions:
-  Gyroscope:
-    type: "object"
-    properties:
-      id:
-        type: "integer"
-        format: "int64"
-      x:
-        type: "number"
-        format: "float"
-      y:
-        type: "number"
-        format: "float"
-      z:
-        type: "number"
-        format: "float"
-      timestamp:
-        type: "string"
-        format: "date-time"
-      deviceID:
-        type: "string"
-  GPS:
-    type: "object"
-    properties:
-      id:
-        type: "integer"
-        format: "int64"
-      latitude:
-        type: "number"
-        format: "float"
-      longitude:
-        type: "number"
-        format: "float"
-      timestamp:
-        type: "string"
-        format: "date-time"
-      deviceID:
-        type: "string"
-  Photo:
-    type: "object"
-    properties:
-      id:
-        type: "integer"
-        format: "int64"
-      photo:
-        type: "string"
-      timestamp:
-        type: "string"
-        format: "date-time"
-      deviceID:
-        type: "string"
-      recognized:
-        type: "boolean"
-      similarity:
-        type: "number"
-        format: "float"
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Erro interno
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Receber dados de foto
+      tags:
+      - telemetria
+swagger: "2.0"
