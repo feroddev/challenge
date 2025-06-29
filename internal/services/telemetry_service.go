@@ -9,6 +9,9 @@ type TelemetryService interface {
 	SaveGyroscopeData(data core.Gyroscope) error
 	SaveGPSData(data core.GPS) error
 	SavePhotoData(data core.Photo) error
+	GetGyroscopeData() ([]core.Gyroscope, error)
+	GetGPSData() ([]core.GPS, error)
+	GetPhotoData() ([]core.Photo, error)
 }
 
 type telemetryService struct {
@@ -31,4 +34,16 @@ func (s *telemetryService) SaveGPSData(data core.GPS) error {
 
 func (s *telemetryService) SavePhotoData(data core.Photo) error {
 	return s.repository.SavePhotoData(data)
+}
+
+func (s *telemetryService) GetGyroscopeData() ([]core.Gyroscope, error) {
+	return s.repository.GetGyroscopeData()
+}
+
+func (s *telemetryService) GetGPSData() ([]core.GPS, error) {
+	return s.repository.GetGPSData()
+}
+
+func (s *telemetryService) GetPhotoData() ([]core.Photo, error) {
+	return s.repository.GetPhotoData()
 }

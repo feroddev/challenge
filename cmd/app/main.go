@@ -48,6 +48,10 @@ func setupRouter(cfg *config.Config, db *gorm.DB) *gin.Engine {
 		telemetryGroup.POST("/gyroscope", telemetryHandler.HandleGyroscopeData)
 		telemetryGroup.POST("/gps", telemetryHandler.HandleGPSData)
 		telemetryGroup.POST("/photo", telemetryHandler.HandlePhotoData)
+		
+		telemetryGroup.GET("/gyroscope", telemetryHandler.GetGyroscopeData)
+		telemetryGroup.GET("/gps", telemetryHandler.GetGPSData)
+		telemetryGroup.GET("/photo", telemetryHandler.GetPhotoData)
 	}
 
 	return router

@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/go-playground/validator/v10"
 	"github/feroddev/challengeV3/internal/core"
 	"github/feroddev/challengeV3/internal/services"
 )
@@ -54,44 +53,58 @@ func (h *TelemetryHandler) HandleGPSData(c *gin.Context) {
 	err := h.telemetryService.SaveGPSData(gpsData)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		})
 		return
 	}
 
-	c.JSON(http.StatusOK, core.Response{
-		Status:  http.StatusOK,
-		Message: "Dados do GPS recebidos com sucesso",
-	})
+	c.JSON(http.StatusCreated, gin.H{"message": "Dados do GPS recebidos com sucesso"})
 }
 
 func (h *TelemetryHandler) HandlePhotoData(c *gin.Context) {
 	var photoData core.Photo
 	if err := c.ShouldBindJSON(&photoData); err != nil {
-		c.JSON(http.StatusBadRequest, core.Response{
-			Status:  http.StatusBadRequest,
-			Message: "Erro ao processar dados da foto",
-		})
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	if err := h.validator.Struct(photoData); err != nil {
-		c.JSON(http.StatusBadRequest, core.Response{
-			Status:  http.StatusBadRequest,
-			Message: "Dados da foto inválidos",
-		})
+	if photoData.Timestamp.IsZero() {
+		photoData.Timestamp = time.Now()
+	}
+
+	err := h.telemetryService.SavePhotoData(photoData)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	if err := h.telemetryService.SavePhotoData(photoData); err != nil {
-		c.JSON(http.StatusInternalServerError, core.Response{
-			Status:  http.StatusInternalServerError,
-			Message: "Erro ao salvar dados da foto",
-		})
+	c.JSON(http.StatusCreated, gin.H{"message": "Dados da foto recebidos com sucesso"})
+}
+
+func (h *TelemetryHandler) GetGyroscopeData(c *gin.Context) {
+	data, err := h.telemetryService.GetGyroscopeData()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusOK, core.Response{
-		Status:  http.StatusOK,
-		Message: "Dados da foto recebidos com sucesso",
-	})
+	c.JSON(http.StatusOK, data)
+}
+
+func (h *TelemetryHandler) GetGPSData(c *gin.Context) {
+	data, err := h.telemetryService.GetGPSData()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, data)
+}
+
+func (h *TelemetryHandler) GetPhotoData(c *gin.Context) {
+	data, err := h.telemetryService.GetPhotoData()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, data)
 }
