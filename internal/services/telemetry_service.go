@@ -31,9 +31,12 @@ type telemetryService struct {
 	logger     *zap.Logger
 }
 
-func NewTelemetryService(repository repositories.TelemetryRepository) TelemetryService {
+func NewTelemetryService(repository repositories.TelemetryRepository, rekognition recognition.RekognitionService, redisCache cache.RedisCache, logger *zap.Logger) TelemetryService {
 	return &telemetryService{
-		repository: repository,
+		repository:  repository,
+		rekognition: rekognition,
+		cache:       redisCache,
+		logger:      logger,
 	}
 }
 
@@ -46,7 +49,24 @@ func (s *telemetryService) SaveGPSData(data core.GPS) error {
 }
 
 func (s *telemetryService) SavePhotoData(data core.Photo) error {
-	return s.repository.SavePhotoData(data)
+	// Primeiro salva a foto no banco de dados
+	err := s.repository.SavePhotoData(data)
+	if err != nil {
+		return err
+	}
+
+	// Processa o reconhecimento de forma assíncrona
+	go func() {
+		ctx := context.Background()
+		_, err := s.ProcessPhotoRecognition(ctx, data)
+		if err != nil {
+			s.logger.Error("Erro ao processar reconhecimento de foto", 
+				zap.String("device_id", data.DeviceID),
+				zap.Error(err))
+		}
+	}()
+
+	return nil
 }
 
 func (s *telemetryService) GetGyroscopeData() ([]core.Gyroscope, error) {
@@ -58,5 +78,25 @@ func (s *telemetryService) GetGPSData() ([]core.GPS, error) {
 }
 
 func (s *telemetryService) GetPhotoData() ([]core.Photo, error) {
-	return s.repository.GetPhotoData()
+	// Tenta buscar do cache primeiro
+	ctx := context.Background()
+	var photos []core.Photo
+	cacheKey := "photos:all"
+
+	err := s.cache.Get(ctx, cacheKey, &photos)
+	if err == nil {
+		s.logger.Debug("Dados de fotos recuperados do cache")
+		return photos, nil
+	}
+
+	// Se não estiver no cache, busca do banco de dados
+	photos, err = s.repository.GetPhotoData()
+	if err != nil {
+		return nil, err
+	}
+
+	// Armazena no cache por 5 minutos
+	s.cache.Set(ctx, cacheKey, photos, 5*time.Minute)
+
+	return photos, nil
 }
