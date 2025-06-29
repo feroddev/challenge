@@ -22,6 +22,22 @@ Este repositório contém três desafios diferentes, cada um focado em uma área
 2. [Desafio Backend](CLOUD.md)
 3. [Desafio Firmware](FIRMWARE.md)
    
+### Endpoints
+
+#### Endpoints para envio de dados
+
+- `POST /telemetry/gyroscope` - Recebe dados do giroscópio
+- `POST /telemetry/gps` - Recebe dados de GPS
+- `POST /telemetry/photo` - Recebe fotos em formato base64
+
+#### Endpoints para consulta de dados
+
+- `GET /telemetry/gyroscope` - Retorna todos os dados do giroscópio
+- `GET /telemetry/gps` - Retorna todos os dados de GPS
+- `GET /telemetry/photo` - Retorna todos os dados de fotos
+
+Documentação completa da API disponível em [docs/api.md](docs/api.md)
+
 ## Poxa, outro teste?
 
 Nós sabemos que os processos de seleção podem ser ingratos! Você investe um tempão e no final pode não ser aprovado!

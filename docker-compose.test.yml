@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  postgres_test:
+    image: postgres:14
+    container_name: telemetry_postgres_test
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: telemetry_test
+    networks:
+      - telemetry_test_network
+
+networks:
+  telemetry_test_network:
+    driver: bridge
