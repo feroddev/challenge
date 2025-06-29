@@ -21,9 +21,17 @@ services:
       AWS_REGION: us-east-1
       AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
       AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+      NATS_URL: nats://nats:4222
+      NATS_GYROSCOPE_TOPIC: gyroscope.telemetry
+      NATS_GPS_TOPIC: gps.telemetry
+      NATS_PHOTO_TOPIC: photo.telemetry
+      NATS_RETRY_ATTEMPTS: 3
+      NATS_RETRY_DELAY: 5
+      NATS_DEAD_LETTER_TOPIC: telemetry.deadletter
     depends_on:
       - postgres
       - redis
+      - nats
     networks:
       - telemetry_network
     restart: unless-stopped
@@ -75,6 +83,102 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+      
+  nats:
+    image: nats:2.9
+    container_name: telemetry_nats
+    ports:
+      - "4222:4222"
+      - "8222:8222"
+    networks:
+      - telemetry_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "/bin/sh", "-c", "nats-server --help"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  gyroscope-consumer:
+    build:
+      context: .
+      dockerfile: Dockerfile.consumers
+    container_name: telemetry_gyroscope_consumer
+    command: /app/gyroscope-consumer
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      DB_NAME: telemetry
+      DB_SSLMODE: disable
+      NATS_URL: nats://nats:4222
+      NATS_GYROSCOPE_TOPIC: gyroscope.telemetry
+      NATS_RETRY_ATTEMPTS: 3
+      NATS_RETRY_DELAY: 5
+      NATS_DEAD_LETTER_TOPIC: telemetry.deadletter
+    depends_on:
+      - postgres
+      - nats
+    networks:
+      - telemetry_network
+    restart: unless-stopped
+
+  gps-consumer:
+    build:
+      context: .
+      dockerfile: Dockerfile.consumers
+    container_name: telemetry_gps_consumer
+    command: /app/gps-consumer
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      DB_NAME: telemetry
+      DB_SSLMODE: disable
+      NATS_URL: nats://nats:4222
+      NATS_GPS_TOPIC: gps.telemetry
+      NATS_RETRY_ATTEMPTS: 3
+      NATS_RETRY_DELAY: 5
+      NATS_DEAD_LETTER_TOPIC: telemetry.deadletter
+    depends_on:
+      - postgres
+      - nats
+    networks:
+      - telemetry_network
+    restart: unless-stopped
+
+  photo-consumer:
+    build:
+      context: .
+      dockerfile: Dockerfile.consumers
+    container_name: telemetry_photo_consumer
+    command: /app/photo-consumer
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      DB_NAME: telemetry
+      DB_SSLMODE: disable
+      REDIS_ADDR: redis:6379
+      REDIS_PASSWORD: ""
+      AWS_REGION: us-east-1
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+      NATS_URL: nats://nats:4222
+      NATS_PHOTO_TOPIC: photo.telemetry
+      NATS_RETRY_ATTEMPTS: 3
+      NATS_RETRY_DELAY: 5
+      NATS_DEAD_LETTER_TOPIC: telemetry.deadletter
+    depends_on:
+      - postgres
+      - redis
+      - nats
+    networks:
+      - telemetry_network
+    restart: unless-stopped
 
 networks:
   telemetry_network:

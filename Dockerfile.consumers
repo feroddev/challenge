@@ -1,0 +1,24 @@
+FROM golang:1.19-alpine AS builder
+
+WORKDIR /app
+
+COPY go.mod go.sum ./
+RUN go mod download
+
+COPY . .
+
+RUN CGO_ENABLED=0 GOOS=linux go build -o /app/bin/gyroscope-consumer cmd/consumers/gyroscope/main.go
+RUN CGO_ENABLED=0 GOOS=linux go build -o /app/bin/gps-consumer cmd/consumers/gps/main.go
+RUN CGO_ENABLED=0 GOOS=linux go build -o /app/bin/photo-consumer cmd/consumers/photo/main.go
+
+FROM alpine:latest
+
+RUN apk --no-cache add ca-certificates tzdata
+
+WORKDIR /app
+
+COPY --from=builder /app/bin/ /app/
+
+ENV TZ=America/Sao_Paulo
+
+CMD ["sh", "-c", "echo 'Selecione um consumidor para executar: gyroscope, gps ou photo'"]
