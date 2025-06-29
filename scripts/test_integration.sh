@@ -7,7 +7,7 @@ echo "Aguardando inicialização do PostgreSQL de teste..."
 sleep 5
 
 echo "Executando testes de integração..."
-DB_PORT=5433 go test -v ./test/repositories/...
+go test -v ./test/repositories/...
 
 echo "Parando banco de dados de teste..."
 docker-compose -f docker-compose.test.yml down
