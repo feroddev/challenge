@@ -26,12 +26,14 @@ type GPS struct {
 }
 
 type Photo struct {
-	ID        uint      `json:"id" gorm:"primaryKey"`
-	Photo     string    `json:"photo" validate:"required" gorm:"type:text"`
-	Timestamp time.Time `json:"timestamp" validate:"required"`
-	DeviceID  string    `json:"device_id" validate:"required"`
-	CreatedAt time.Time `json:"created_at" gorm:"autoCreateTime"`
-	UpdatedAt time.Time `json:"updated_at" gorm:"autoUpdateTime"`
+	ID          uint      `json:"id" gorm:"primaryKey"`
+	Photo       string    `json:"photo" validate:"required" gorm:"type:text"`
+	Timestamp   time.Time `json:"timestamp" validate:"required"`
+	DeviceID    string    `json:"device_id" validate:"required"`
+	Recognized  bool      `json:"recognized" gorm:"default:false"`
+	Similarity  float32   `json:"similarity,omitempty" gorm:"default:0"`
+	CreatedAt   time.Time `json:"created_at" gorm:"autoCreateTime"`
+	UpdatedAt   time.Time `json:"updated_at" gorm:"autoUpdateTime"`
 }
 
 type Response struct {
