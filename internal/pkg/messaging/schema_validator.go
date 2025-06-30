@@ -2,15 +2,12 @@ package messaging
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"reflect"
 	"time"
 
 	"github.com/xeipuuv/gojsonschema"
 	"go.uber.org/zap"
-
-	"github/feroddev/challengeV3/internal/core"
 )
 
 type SchemaValidator struct {

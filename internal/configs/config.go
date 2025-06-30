@@ -3,6 +3,7 @@ package configs
 import (
 	"github/feroddev/challengeV3/internal/pkg/messaging"
 	"os"
+	"strconv"
 )
 
 type Config struct {
@@ -14,6 +15,9 @@ type Config struct {
 	Tracing     TracingConfig
 	Redis       RedisConfig
 	AWS         AWSConfig
+	Auth        AuthConfig
+	RateLimit   RateLimitConfig
+	Crypto      CryptoConfig
 }
 
 type ServerConfig struct {
@@ -52,6 +56,20 @@ type AWSConfig struct {
 	SecretAccessKey string
 }
 
+type AuthConfig struct {
+	JWTSecret     string
+	TokenDuration int
+}
+
+type RateLimitConfig struct {
+	Requests int
+	Period   int
+}
+
+type CryptoConfig struct {
+	EncryptionKey string
+}
+
 func NewConfig() *Config {
 	return &Config{
 		Environment: getEnv("ENVIRONMENT", "development"),
@@ -68,7 +86,11 @@ func NewConfig() *Config {
 			SSLMode:  getEnv("DB_SSLMODE", "disable"),
 		},
 		NATS: messaging.ProducerConfig{
-			URL: getEnv("NATS_URL", "nats://localhost:4222"),
+			URL:               getEnv("NATS_URL", "nats://localhost:4222"),
+			RetryAttempts:     getEnvInt("NATS_RETRY_ATTEMPTS", 3),
+			RetryDelaySeconds: getEnvInt("NATS_RETRY_DELAY", 1),
+			DeadLetterTopic:   getEnv("NATS_DEAD_LETTER_TOPIC", "telemetry.dead_letter"),
+			EncryptionKey:     getEnv("ENCRYPTION_KEY", ""),
 		},
 		Topics: TopicsConfig{
 			Gyroscope: getEnv("TOPIC_GYROSCOPE", "telemetry.gyroscope"),
@@ -88,6 +110,17 @@ func NewConfig() *Config {
 			AccessKeyID:     getEnv("AWS_ACCESS_KEY_ID", ""),
 			SecretAccessKey: getEnv("AWS_SECRET_ACCESS_KEY", ""),
 		},
+		Auth: AuthConfig{
+			JWTSecret:     getEnv("JWT_SECRET", "telemetry_secret_key_change_in_production"),
+			TokenDuration: getEnvInt("JWT_TOKEN_DURATION", 24),
+		},
+		RateLimit: RateLimitConfig{
+			Requests: getEnvInt("RATE_LIMIT_REQUESTS", 100),
+			Period:   getEnvInt("RATE_LIMIT_PERIOD", 60),
+		},
+		Crypto: CryptoConfig{
+			EncryptionKey: getEnv("ENCRYPTION_KEY", ""),
+		},
 	}
 }
 
@@ -97,4 +130,16 @@ func getEnv(key, defaultValue string) string {
 		return defaultValue
 	}
 	return value
+}
+
+func getEnvInt(key string, defaultValue int) int {
+	value := os.Getenv(key)
+	if value == "" {
+		return defaultValue
+	}
+	intValue, err := strconv.Atoi(value)
+	if err != nil {
+		return defaultValue
+	}
+	return intValue
 }

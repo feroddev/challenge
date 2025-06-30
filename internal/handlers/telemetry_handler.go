@@ -41,6 +41,12 @@ func (h *TelemetryHandler) HandleGyroscopeData(c *gin.Context) {
 		return
 	}
 
+	userID := c.GetString("user_id")
+	if userID == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Usuario nao autenticado"})
+		return
+	}
+
 	if gyroscopeData.Timestamp.IsZero() {
 		gyroscopeData.Timestamp = time.Now()
 	}
@@ -51,7 +57,7 @@ func (h *TelemetryHandler) HandleGyroscopeData(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusCreated, gin.H{"message": "Dados do giroscópio recebidos com sucesso"})
+	c.JSON(http.StatusCreated, gin.H{"message": "Dados do giroscopio recebidos com sucesso"})
 }
 
 // HandleGPSData recebe dados de GPS e salva no repositório
@@ -69,6 +75,12 @@ func (h *TelemetryHandler) HandleGPSData(c *gin.Context) {
 	var gpsData core.GPS
 	if err := c.ShouldBindJSON(&gpsData); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	userID := c.GetString("user_id")
+	if userID == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Usuario nao autenticado"})
 		return
 	}
 

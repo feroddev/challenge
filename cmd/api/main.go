@@ -10,6 +10,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
+	"golang.org/x/time/rate"
 
 	"github/feroddev/challengeV3/internal/configs"
 	"github/feroddev/challengeV3/internal/handlers"
@@ -46,8 +47,23 @@ func main() {
 	gin.SetMode(gin.ReleaseMode)
 	router := gin.New()
 	router.Use(gin.Recovery())
+	
+	// Configura middleware de auditoria
+	router.Use(middleware.AuditLog(logger))
+	
+	// Configura middleware de métricas e tracing
 	router.Use(middleware.PrometheusMiddleware())
 	router.Use(middleware.OpenTelemetryMiddleware("telemetry-api"))
+	
+	// Configura rate limiter
+	rateLimiter := middleware.NewRateLimiter(
+		rate.Limit(float64(config.RateLimit.Requests)/float64(config.RateLimit.Period)),
+		config.RateLimit.Requests,
+		logger,
+	)
+	
+	// Inicia tarefa de limpeza do rate limiter a cada 1 hora
+	rateLimiter.CleanupTask(1 * time.Hour)
 
 	// Configura o repositório
 	repo, err := repositories.NewTelemetryRepository(config.Database, logger)
@@ -55,7 +71,8 @@ func main() {
 		logger.Fatal("Falha ao conectar ao banco de dados", zap.Error(err))
 	}
 
-	// Configura o produtor NATS
+	// Configura o produtor NATS com suporte a criptografia
+	config.NATS.EncryptionKey = config.Crypto.EncryptionKey
 	producer, err := messaging.NewProducer(config.NATS, logger)
 	if err != nil {
 		logger.Fatal("Falha ao conectar ao NATS", zap.Error(err))
@@ -73,33 +90,66 @@ func main() {
 	}
 	telemetryService := services.NewTelemetryService(repo, producerAdapter, telemetryServiceConfig, logger)
 
+	// Configura o serviço de autenticação
+	authServiceConfig := services.AuthServiceConfig{
+		JWTSecret:     config.Auth.JWTSecret,
+		TokenDuration: time.Duration(config.Auth.TokenDuration) * time.Hour,
+	}
+	authService := services.NewAuthService(authServiceConfig, logger)
+
 	// Configura os handlers
 	telemetryHandler := handlers.NewTelemetryHandler(telemetryService, logger)
+	authHandler := handlers.NewAuthHandler(authService, logger)
 
-	// Configura as rotas
+	// Configura as rotas públicas (sem autenticação)
+	public := router.Group("/api")
+	{
+		auth := public.Group("/auth")
+		{
+			auth.POST("/register", authHandler.Register)
+			auth.POST("/login", authHandler.Login)
+		}
+		
+		public.GET("/health", func(c *gin.Context) {
+			c.JSON(http.StatusOK, gin.H{"status": "ok"})
+		})
+	}
+	
+	// Configura as rotas protegidas (com autenticação)
 	v1 := router.Group("/api/v1")
 	{
+		// Aplica middleware de autenticação JWT
+		v1.Use(middleware.JWTAuth(authService, logger))
+		
+		// Aplica rate limiting por IP e Device ID
+		v1.Use(rateLimiter.IPRateLimit())
+		
 		telemetry := v1.Group("/telemetry")
 		{
-			telemetry.POST("/gyroscope", telemetryHandler.HandleGyroscopeData)
-			telemetry.POST("/gps", telemetryHandler.HandleGPSData)
-			telemetry.POST("/photo", telemetryHandler.HandlePhotoData)
-			telemetry.GET("/gyroscope", telemetryHandler.GetGyroscopeData)
-			telemetry.GET("/gps", telemetryHandler.GetGPSData)
-			telemetry.GET("/photo", telemetryHandler.GetPhotoData)
+			// Rotas POST com rate limiting por dispositivo
+			postGroup := telemetry.Group("/")
+			postGroup.Use(rateLimiter.DeviceRateLimit())
+			postGroup.POST("/gyroscope", telemetryHandler.HandleGyroscopeData)
+			postGroup.POST("/gps", telemetryHandler.HandleGPSData)
+			postGroup.POST("/photo", telemetryHandler.HandlePhotoData)
+			
+			// Rotas GET apenas para usuários com role admin
+			getGroup := telemetry.Group("/")
+			getGroup.Use(middleware.RoleRequired("admin"))
+			getGroup.GET("/gyroscope", telemetryHandler.GetGyroscopeData)
+			getGroup.GET("/gps", telemetryHandler.GetGPSData)
+			getGroup.GET("/photo", telemetryHandler.GetPhotoData)
 		}
 	}
 
-	// Configura rota de métricas do Prometheus
-	router.GET("/metrics", gin.WrapH(metrics.MetricsHandler()))
+	// Configura rota de métricas do Prometheus (protegida por autenticação)
+	metricsGroup := router.Group("/metrics")
+	metricsGroup.Use(middleware.JWTAuth(authService, logger))
+	metricsGroup.Use(middleware.RoleRequired("admin"))
+	metricsGroup.GET("", gin.WrapH(metrics.MetricsHandler()))
 
 	// Configura Swagger
 	handlers.SetupSwaggerRoutes(router)
-
-	// Configura rota de health check
-	router.GET("/health", func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{"status": "ok"})
-	})
 
 	// Inicia o servidor com graceful shutdown
 	srv := &http.Server{
