@@ -7,9 +7,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"go.uber.org/zap"
+
 	"github/feroddev/challengeV3/internal/core"
-	"github/feroddev/challengeV3/internal/pkg/messaging"
 	"github/feroddev/challengeV3/internal/services"
+	"github/feroddev/challengeV3/test/mocks"
 )
 
 type MockTelemetryRepository struct {
@@ -46,38 +47,7 @@ func (m *MockTelemetryRepository) GetPhotoData() ([]core.Photo, error) {
 	return args.Get(0).([]core.Photo), args.Error(1)
 }
 
-func (m *MockTelemetryRepository) GetPhotosByDeviceID(deviceID string) ([]core.Photo, error) {
-	args := m.Called(deviceID)
-	return args.Get(0).([]core.Photo), args.Error(1)
-}
-
-func (m *MockTelemetryRepository) UpdatePhotoRecognition(id uint, recognized bool, similarity float32) error {
-	args := m.Called(id, recognized, similarity)
-	return args.Error(0)
-}
-
-type mockProducerWrapper struct {
-	mock *mock.Mock
-	producer *messaging.Producer
-}
-
-func newMockProducer() (*mockProducerWrapper, error) {
-	logger, _ := zap.NewDevelopment()
-	config := messaging.ProducerConfig{
-		URL: "nats://localhost:4222",
-	}
-	
-	producer, err := messaging.NewProducer(config, logger)
-	if err != nil {
-		return nil, err
-	}
-	
-	m := &mock.Mock{}
-	return &mockProducerWrapper{
-		mock: m,
-		producer: producer,
-	}, nil
-}
+// Métodos GetPhotosByDeviceID e UpdatePhotoRecognition foram movidos para telemetry_service_recognition_test.go
 
 func TestSaveGyroscopeData(t *testing.T) {
 	mockRepo := new(MockTelemetryRepository)
@@ -108,11 +78,13 @@ func TestSaveGyroscopeData(t *testing.T) {
 	}
 
 	mockRepo.On("SaveGyroscopeData", gyroscopeData).Return(nil)
+	mockProducer.On("PublishWithRetry", mock.Anything, config.GyroscopeTopic, gyroscopeData, mock.Anything, mock.Anything).Return(nil)
 
 	err = service.SaveGyroscopeData(gyroscopeData)
 
 	assert.NoError(t, err)
 	mockRepo.AssertExpectations(t)
+	mockProducer.AssertExpectations(t)
 }
 
 func TestSaveGPSData(t *testing.T) {
@@ -125,7 +97,8 @@ func TestSaveGPSData(t *testing.T) {
 		PhotoTopic:     "photo.telemetry",
 	}
 	
-	producer, err := messaging.NewProducer(messaging.ProducerConfig{
+	mockProducer := new(MockProducer)
+	producer, err := messaging.NewProducerAdapter(mockProducer, messaging.ProducerConfig{
 		URL: "nats://mock:4222",
 	}, logger)
 	if err != nil {
@@ -143,11 +116,13 @@ func TestSaveGPSData(t *testing.T) {
 	}
 
 	mockRepo.On("SaveGPSData", gpsData).Return(nil)
+	mockProducer.On("PublishWithRetry", mock.Anything, config.GPSTopic, gpsData, mock.Anything, mock.Anything).Return(nil)
 
 	err = service.SaveGPSData(gpsData)
 
 	assert.NoError(t, err)
 	mockRepo.AssertExpectations(t)
+	mockProducer.AssertExpectations(t)
 }
 
 func TestSavePhotoData(t *testing.T) {
@@ -160,7 +135,8 @@ func TestSavePhotoData(t *testing.T) {
 		PhotoTopic:     "photo.telemetry",
 	}
 	
-	producer, err := messaging.NewProducer(messaging.ProducerConfig{
+	mockProducer := new(MockProducer)
+	producer, err := messaging.NewProducerAdapter(mockProducer, messaging.ProducerConfig{
 		URL: "nats://mock:4222",
 	}, logger)
 	if err != nil {
@@ -177,11 +153,13 @@ func TestSavePhotoData(t *testing.T) {
 	}
 
 	mockRepo.On("SavePhotoData", photoData).Return(nil)
+	mockProducer.On("PublishWithRetry", mock.Anything, config.PhotoTopic, photoData, mock.Anything, mock.Anything).Return(nil)
 
 	err = service.SavePhotoData(photoData)
 
 	assert.NoError(t, err)
 	mockRepo.AssertExpectations(t)
+	mockProducer.AssertExpectations(t)
 }
 
 func TestGetGyroscopeData(t *testing.T) {
@@ -190,7 +168,8 @@ func TestGetGyroscopeData(t *testing.T) {
 	
 	config := services.TelemetryServiceConfig{}
 	
-	producer, err := messaging.NewProducer(messaging.ProducerConfig{
+	mockProducer := new(MockProducer)
+	producer, err := messaging.NewProducerAdapter(mockProducer, messaging.ProducerConfig{
 		URL: "nats://mock:4222",
 	}, logger)
 	if err != nil {
@@ -226,7 +205,8 @@ func TestGetGPSData(t *testing.T) {
 	
 	config := services.TelemetryServiceConfig{}
 	
-	producer, err := messaging.NewProducer(messaging.ProducerConfig{
+	mockProducer := new(MockProducer)
+	producer, err := messaging.NewProducerAdapter(mockProducer, messaging.ProducerConfig{
 		URL: "nats://mock:4222",
 	}, logger)
 	if err != nil {
@@ -247,12 +227,14 @@ func TestGetGPSData(t *testing.T) {
 	}
 
 	mockRepo.On("GetGPSData").Return(expectedData, nil)
+	mockProducer.On("PublishWithRetry", mock.Anything, config.GPSTopic, expectedData[0], mock.Anything, mock.Anything).Return(nil)
 
 	data, err := service.GetGPSData()
 
 	assert.NoError(t, err)
 	assert.Equal(t, expectedData, data)
 	mockRepo.AssertExpectations(t)
+	mockProducer.AssertExpectations(t)
 }
 
 func TestGetPhotoData(t *testing.T) {

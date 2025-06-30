@@ -11,6 +11,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 
+	"github/feroddev/challengeV3/internal/configs"
 	"github/feroddev/challengeV3/internal/handlers"
 	"github/feroddev/challengeV3/internal/middleware"
 	"github/feroddev/challengeV3/internal/pkg/messaging"
@@ -61,13 +62,16 @@ func main() {
 	}
 	defer producer.Close()
 
+	// Cria o adaptador para o produtor
+	producerAdapter := messaging.NewProducerAdapter(producer)
+
 	// Configura o serviço de telemetria
 	telemetryServiceConfig := services.TelemetryServiceConfig{
 		GyroscopeTopic: config.Topics.Gyroscope,
 		GPSTopic:       config.Topics.GPS,
 		PhotoTopic:     config.Topics.Photo,
 	}
-	telemetryService := services.NewTelemetryService(repo, producer, telemetryServiceConfig, logger)
+	telemetryService := services.NewTelemetryService(repo, producerAdapter, telemetryServiceConfig, logger)
 
 	// Configura os handlers
 	telemetryHandler := handlers.NewTelemetryHandler(telemetryService, logger)
