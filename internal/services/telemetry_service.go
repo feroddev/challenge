@@ -186,7 +186,7 @@ func (s *telemetryService) SaveGyroscopeData(data core.Gyroscope) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	err = s.producer.PublishWithRetry(ctx, s.config.GyroscopeTopic, data)
+	err = s.producer.PublishWithRetry(ctx, s.config.GyroscopeTopic, data, 3, 2*time.Second)
 	if err != nil {
 		s.logger.Error("Erro ao publicar dados do giroscópio no NATS",
 			zap.Error(err),
@@ -205,7 +205,7 @@ func (s *telemetryService) SaveGPSData(data core.GPS) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	err = s.producer.PublishWithRetry(ctx, s.config.GPSTopic, data)
+	err = s.producer.PublishWithRetry(ctx, s.config.GPSTopic, data, 3, 2*time.Second)
 	if err != nil {
 		s.logger.Error("Erro ao publicar dados do GPS no NATS",
 			zap.Error(err),
@@ -224,7 +224,7 @@ func (s *telemetryService) SavePhotoData(data core.Photo) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	err = s.producer.PublishWithRetry(ctx, s.config.PhotoTopic, data)
+	err = s.producer.PublishWithRetry(ctx, s.config.PhotoTopic, data, 3, 2*time.Second)
 	if err != nil {
 		s.logger.Error("Erro ao publicar dados da foto no NATS",
 			zap.Error(err),

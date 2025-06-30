@@ -54,10 +54,20 @@ func (p *Producer) Publish(topic string, data interface{}) error {
 	return nil
 }
 
-func (p *Producer) PublishWithRetry(ctx context.Context, topic string, data interface{}) error {
+func (p *Producer) PublishWithRetry(ctx context.Context, topic string, data interface{}, retries int, delay time.Duration) error {
 	var lastErr error
 	
-	for attempt := 0; attempt < p.config.RetryAttempts; attempt++ {
+	attempts := retries
+	if attempts <= 0 {
+		attempts = p.config.RetryAttempts
+	}
+	
+	retryDelay := delay
+	if retryDelay <= 0 {
+		retryDelay = time.Duration(p.config.RetryDelaySeconds) * time.Second
+	}
+	
+	for attempt := 0; attempt < attempts; attempt++ {
 		err := p.Publish(topic, data)
 		if err == nil {
 			return nil
@@ -71,7 +81,7 @@ func (p *Producer) PublishWithRetry(ctx context.Context, topic string, data inte
 			zap.Error(err))
 		
 		select {
-		case <-time.After(time.Duration(p.config.RetryDelaySeconds) * time.Second):
+		case <-time.After(retryDelay):
 		case <-ctx.Done():
 			return fmt.Errorf("contexto cancelado durante tentativas de publicação: %w", ctx.Err())
 		}

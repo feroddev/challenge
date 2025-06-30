@@ -26,7 +26,7 @@ func (a *ProducerAdapter) Publish(topic string, data interface{}) error {
 
 // PublishWithRetry publica uma mensagem com tentativas de reenvio
 func (a *ProducerAdapter) PublishWithRetry(ctx context.Context, topic string, data interface{}, retries int, delay time.Duration) error {
-	return a.producer.PublishWithRetry(ctx, topic, data)
+	return a.producer.PublishWithRetry(ctx, topic, data, retries, delay)
 }
 
 // Close fecha a conexão com o NATS
