@@ -31,6 +31,5 @@ func (a *ProducerAdapter) PublishWithRetry(ctx context.Context, topic string, da
 
 // Close fecha a conexão com o NATS
 func (a *ProducerAdapter) Close() error {
-	a.producer.Close()
-	return nil
+	return a.producer.Close()
 }
