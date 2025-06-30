@@ -1,6 +1,7 @@
 package services_test
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -83,6 +84,11 @@ type MockProducer struct {
 
 func (m *MockProducer) Publish(topic string, data interface{}) error {
 	args := m.Called(topic, data)
+	return args.Error(0)
+}
+
+func (m *MockProducer) PublishWithRetry(ctx context.Context, topic string, data interface{}, retries int, delay time.Duration) error {
+	args := m.Called(ctx, topic, data, retries, delay)
 	return args.Error(0)
 }
 
