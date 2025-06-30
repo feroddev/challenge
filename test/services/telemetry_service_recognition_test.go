@@ -11,249 +11,162 @@ import (
 
 	"github/feroddev/challengeV3/internal/core"
 	"github/feroddev/challengeV3/internal/services"
+	"github/feroddev/challengeV3/test/mocks"
 )
 
-type MockTelemetryRepository struct {
+type MockAWSRekognition struct {
 	mock.Mock
 }
 
-func (m *MockTelemetryRepository) SaveGyroscope(gyroscope core.Gyroscope) error {
-	args := m.Called(gyroscope)
-	return args.Error(0)
-}
-
-func (m *MockTelemetryRepository) SaveGPS(gps core.GPS) error {
-	args := m.Called(gps)
-	return args.Error(0)
-}
-
-func (m *MockTelemetryRepository) SavePhoto(photo core.Photo) error {
-	args := m.Called(photo)
-	return args.Error(0)
-}
-
-func (m *MockTelemetryRepository) GetGyroscopeByDeviceID(deviceID string) ([]core.Gyroscope, error) {
-	args := m.Called(deviceID)
-	return args.Get(0).([]core.Gyroscope), args.Error(1)
-}
-
-func (m *MockTelemetryRepository) GetGPSByDeviceID(deviceID string) ([]core.GPS, error) {
-	args := m.Called(deviceID)
-	return args.Get(0).([]core.GPS), args.Error(1)
-}
-
-func (m *MockTelemetryRepository) GetPhotosByDeviceID(deviceID string) ([]core.Photo, error) {
-	args := m.Called(deviceID)
-	return args.Get(0).([]core.Photo), args.Error(1)
-}
-
-func (m *MockTelemetryRepository) UpdatePhotoRecognition(photoID int64, recognized bool, similarity float32) error {
-	args := m.Called(photoID, recognized, similarity)
-	return args.Error(0)
-}
-
-type MockRekognitionClient struct {
-	mock.Mock
-}
-
-func (m *MockRekognitionClient) CompareFaces(sourceImage []byte, targetImage []byte) (float32, error) {
+func (m *MockAWSRekognition) CompareFaces(sourceImage, targetImage string) (bool, float32, error) {
 	args := m.Called(sourceImage, targetImage)
-	return args.Get(0).(float32), args.Error(1)
+	return args.Bool(0), args.Get(1).(float32), args.Error(2)
 }
 
 type MockRedisCache struct {
 	mock.Mock
 }
 
-func (m *MockRedisCache) Get(key string) (interface{}, error) {
+func (m *MockRedisCache) Get(key string) (string, error) {
 	args := m.Called(key)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0), args.Error(1)
+	return args.String(0), args.Error(1)
 }
 
-func (m *MockRedisCache) Set(key string, value interface{}, expiration time.Duration) error {
+func (m *MockRedisCache) Set(key, value string, expiration time.Duration) error {
 	args := m.Called(key, value, expiration)
-	return args.Error(0)
-}
-
-type MockProducer struct {
-	mock.Mock
-}
-
-func (m *MockProducer) Publish(topic string, data interface{}) error {
-	args := m.Called(topic, data)
-	return args.Error(0)
-}
-
-func (m *MockProducer) PublishWithRetry(ctx context.Context, topic string, data interface{}, retries int, delay time.Duration) error {
-	args := m.Called(ctx, topic, data, retries, delay)
-	return args.Error(0)
-}
-
-func (m *MockProducer) Close() error {
-	args := m.Called()
 	return args.Error(0)
 }
 
 func TestProcessPhotoRecognition(t *testing.T) {
 	mockRepo := new(MockTelemetryRepository)
-	mockProducer := new(MockProducer)
-	
-	mockRekognition := new(MockRekognitionClient)
+	mockAWS := new(MockAWSRekognition)
 	mockCache := new(MockRedisCache)
 	logger, _ := zap.NewDevelopment()
 	
 	config := services.TelemetryServiceConfig{
-		GyroscopeTopic: "gyroscope",
-		GPSTopic:       "gps",
-		PhotoTopic:     "photo",
+		PhotoTopic: "photo.telemetry",
 	}
 	
-	service := services.NewTelemetryServiceWithRecognition(
-		mockRepo,
-		mockProducer,
-		mockRekognition,
-		mockCache,
-		config,
-		logger,
-	)
+	mockProducer := new(mocks.MockProducer)
 	
-	now := time.Now()
-	deviceID := "test-device-123"
-	
+	service := services.NewTelemetryService(mockRepo, mockProducer, config, logger)
+	service.SetAWSRekognition(mockAWS)
+	service.SetRedisCache(mockCache)
+
+	deviceID := "test-device"
 	photo1 := core.Photo{
 		ID:        1,
-		Photo:     "dGVzdC1waG90by0x",
-		Timestamp: now.Add(-time.Hour),
+		Photo:     "base64_photo_1",
 		DeviceID:  deviceID,
+		Timestamp: time.Now().Add(-1 * time.Hour),
 	}
-	
 	photo2 := core.Photo{
 		ID:        2,
-		Photo:     "dGVzdC1waG90by0y",
-		Timestamp: now,
+		Photo:     "base64_photo_2",
 		DeviceID:  deviceID,
+		Timestamp: time.Now(),
 	}
-	
-	photos := []core.Photo{photo1}
-	
+	photos := []core.Photo{photo1, photo2}
+
 	mockRepo.On("GetPhotosByDeviceID", deviceID).Return(photos, nil)
-	mockRekognition.On("CompareFaces", mock.Anything, mock.Anything).Return(float32(0.95), nil)
-	mockRepo.On("UpdatePhotoRecognition", photo2.ID, true, float32(0.95)).Return(nil)
-	mockCache.On("Get", mock.Anything).Return(nil, core.ErrCacheMiss)
-	mockCache.On("Set", mock.Anything, mock.Anything, mock.Anything).Return(nil)
-	
-	err := service.ProcessPhotoRecognition(photo2)
-	
+	mockCache.On("Get", "recognition:1:2").Return("", nil)
+	mockAWS.On("CompareFaces", photo1.Photo, photo2.Photo).Return(true, float32(90.5), nil)
+	mockCache.On("Set", "recognition:1:2", "true:90.5", mock.Anything).Return(nil)
+	mockRepo.On("UpdatePhotoRecognition", uint(2), true, float32(90.5)).Return(nil)
+	mockProducer.On("PublishWithRetry", mock.Anything, config.PhotoTopic, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+	result, err := service.ProcessPhotoRecognition(context.Background(), photo2)
+
 	assert.NoError(t, err)
+	assert.True(t, result.Recognized)
+	assert.Equal(t, float32(90.5), result.Similarity)
 	mockRepo.AssertExpectations(t)
-	mockRekognition.AssertExpectations(t)
+	mockAWS.AssertExpectations(t)
 	mockCache.AssertExpectations(t)
+	mockProducer.AssertExpectations(t)
 }
 
 func TestProcessPhotoRecognitionWithCache(t *testing.T) {
 	mockRepo := new(MockTelemetryRepository)
-	mockProducer := new(MockProducer)
-	
-	mockRekognition := new(MockRekognitionClient)
+	mockAWS := new(MockAWSRekognition)
 	mockCache := new(MockRedisCache)
 	logger, _ := zap.NewDevelopment()
 	
 	config := services.TelemetryServiceConfig{
-		GyroscopeTopic: "gyroscope",
-		GPSTopic:       "gps",
-		PhotoTopic:     "photo",
+		PhotoTopic: "photo.telemetry",
 	}
 	
-	service := services.NewTelemetryServiceWithRecognition(
-		mockRepo,
-		mockProducer,
-		mockRekognition,
-		mockCache,
-		config,
-		logger,
-	)
+	mockProducer := new(mocks.MockProducer)
 	
-	now := time.Now()
-	deviceID := "test-device-123"
-	
-	photo := core.Photo{
-		ID:        2,
-		Photo:     "dGVzdC1waG90by0y",
-		Timestamp: now,
+	service := services.NewTelemetryService(mockRepo, mockProducer, config, logger)
+	service.SetAWSRekognition(mockAWS)
+	service.SetRedisCache(mockCache)
+
+	deviceID := "test-device"
+	photo1 := core.Photo{
+		ID:        1,
+		Photo:     "base64_photo_1",
 		DeviceID:  deviceID,
+		Timestamp: time.Now().Add(-1 * time.Hour),
 	}
-	
-	cacheResult := &core.RecognitionResult{
-		Recognized: true,
-		Similarity: 0.95,
+	photo2 := core.Photo{
+		ID:        2,
+		Photo:     "base64_photo_2",
+		DeviceID:  deviceID,
+		Timestamp: time.Now(),
 	}
-	
-	mockCache.On("Get", mock.Anything).Return(cacheResult, nil)
-	mockRepo.On("UpdatePhotoRecognition", photo.ID, true, float32(0.95)).Return(nil)
-	
-	err := service.ProcessPhotoRecognition(photo)
-	
+	photos := []core.Photo{photo1, photo2}
+
+	mockRepo.On("GetPhotosByDeviceID", deviceID).Return(photos, nil)
+	mockCache.On("Get", "recognition:1:2").Return("true:95.5", nil)
+	mockRepo.On("UpdatePhotoRecognition", uint(2), true, float32(95.5)).Return(nil)
+	mockProducer.On("PublishWithRetry", mock.Anything, config.PhotoTopic, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+	result, err := service.ProcessPhotoRecognition(context.Background(), photo2)
+
 	assert.NoError(t, err)
-	mockCache.AssertExpectations(t)
+	assert.True(t, result.Recognized)
+	assert.Equal(t, float32(95.5), result.Similarity)
 	mockRepo.AssertExpectations(t)
-	mockRekognition.AssertNotCalled(t, "CompareFaces")
+	mockCache.AssertExpectations(t)
+	mockProducer.AssertExpectations(t)
+	mockAWS.AssertNotCalled(t, "CompareFaces")
 }
 
 func TestProcessPhotoRecognitionNoMatch(t *testing.T) {
 	mockRepo := new(MockTelemetryRepository)
-	mockProducer := new(MockProducer)
-	
-	mockRekognition := new(MockRekognitionClient)
+	mockAWS := new(MockAWSRekognition)
 	mockCache := new(MockRedisCache)
 	logger, _ := zap.NewDevelopment()
 	
 	config := services.TelemetryServiceConfig{
-		GyroscopeTopic: "gyroscope",
-		GPSTopic:       "gps",
-		PhotoTopic:     "photo",
+		PhotoTopic: "photo.telemetry",
 	}
 	
-	service := services.NewTelemetryServiceWithRecognition(
-		mockRepo,
-		mockProducer,
-		mockRekognition,
-		mockCache,
-		config,
-		logger,
-	)
+	mockProducer := new(mocks.MockProducer)
 	
-	now := time.Now()
-	deviceID := "test-device-123"
-	
-	photo1 := core.Photo{
-		ID:        1,
-		Photo:     "dGVzdC1waG90by0x",
-		Timestamp: now.Add(-time.Hour),
-		DeviceID:  deviceID,
-	}
-	
+	service := services.NewTelemetryService(mockRepo, mockProducer, config, logger)
+	service.SetAWSRekognition(mockAWS)
+	service.SetRedisCache(mockCache)
+
+	deviceID := "test-device"
 	photo2 := core.Photo{
 		ID:        2,
-		Photo:     "dGVzdC1waG90by0y",
-		Timestamp: now,
+		Photo:     "base64_photo_2",
 		DeviceID:  deviceID,
+		Timestamp: time.Now(),
 	}
-	
-	photos := []core.Photo{photo1}
-	
-	mockRepo.On("GetPhotosByDeviceID", deviceID).Return(photos, nil)
-	mockRekognition.On("CompareFaces", mock.Anything, mock.Anything).Return(float32(0.30), nil)
-	mockRepo.On("UpdatePhotoRecognition", photo2.ID, false, float32(0.30)).Return(nil)
-	mockCache.On("Get", mock.Anything).Return(nil, core.ErrCacheMiss)
-	mockCache.On("Set", mock.Anything, mock.Anything, mock.Anything).Return(nil)
-	
-	err := service.ProcessPhotoRecognition(photo2)
-	
+
+	mockRepo.On("GetPhotosByDeviceID", deviceID).Return([]core.Photo{}, nil)
+	mockRepo.On("UpdatePhotoRecognition", uint(2), false, float32(0)).Return(nil)
+	mockProducer.On("PublishWithRetry", mock.Anything, config.PhotoTopic, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+	result, err := service.ProcessPhotoRecognition(context.Background(), photo2)
+
 	assert.NoError(t, err)
+	assert.False(t, result.Recognized)
+	assert.Equal(t, float32(0), result.Similarity)
 	mockRepo.AssertExpectations(t)
-	mockRekognition.AssertExpectations(t)
-	mockCache.AssertExpectations(t)
+	mockCache.AssertNotCalled(t, "Get")
+	mockAWS.AssertNotCalled(t, "CompareFaces")
 }

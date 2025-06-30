@@ -1,6 +1,7 @@
 package services_test
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -47,7 +48,15 @@ func (m *MockTelemetryRepository) GetPhotoData() ([]core.Photo, error) {
 	return args.Get(0).([]core.Photo), args.Error(1)
 }
 
-// Métodos GetPhotosByDeviceID e UpdatePhotoRecognition foram movidos para telemetry_service_recognition_test.go
+func (m *MockTelemetryRepository) GetPhotosByDeviceID(deviceID string) ([]core.Photo, error) {
+	args := m.Called(deviceID)
+	return args.Get(0).([]core.Photo), args.Error(1)
+}
+
+func (m *MockTelemetryRepository) UpdatePhotoRecognition(id uint, recognized bool, similarity float32) error {
+	args := m.Called(id, recognized, similarity)
+	return args.Error(0)
+}
 
 func TestSaveGyroscopeData(t *testing.T) {
 	mockRepo := new(MockTelemetryRepository)
@@ -59,15 +68,9 @@ func TestSaveGyroscopeData(t *testing.T) {
 		PhotoTopic:     "photo.telemetry",
 	}
 	
-	producer, err := messaging.NewProducer(messaging.ProducerConfig{
-		URL: "nats://mock:4222",
-	}, logger)
-	if err != nil {
-		t.Skip("Pulando teste: não foi possível criar o produtor NATS")
-		return
-	}
+	mockProducer := new(mocks.MockProducer)
 	
-	service := services.NewTelemetryService(mockRepo, producer, config, logger)
+	service := services.NewTelemetryService(mockRepo, mockProducer, config, logger)
 
 	gyroscopeData := core.Gyroscope{
 		X:         10.5,
@@ -80,7 +83,7 @@ func TestSaveGyroscopeData(t *testing.T) {
 	mockRepo.On("SaveGyroscopeData", gyroscopeData).Return(nil)
 	mockProducer.On("PublishWithRetry", mock.Anything, config.GyroscopeTopic, gyroscopeData, mock.Anything, mock.Anything).Return(nil)
 
-	err = service.SaveGyroscopeData(gyroscopeData)
+	err := service.SaveGyroscopeData(gyroscopeData)
 
 	assert.NoError(t, err)
 	mockRepo.AssertExpectations(t)
@@ -97,16 +100,9 @@ func TestSaveGPSData(t *testing.T) {
 		PhotoTopic:     "photo.telemetry",
 	}
 	
-	mockProducer := new(MockProducer)
-	producer, err := messaging.NewProducerAdapter(mockProducer, messaging.ProducerConfig{
-		URL: "nats://mock:4222",
-	}, logger)
-	if err != nil {
-		t.Skip("Pulando teste: não foi possível criar o produtor NATS")
-		return
-	}
+	mockProducer := new(mocks.MockProducer)
 	
-	service := services.NewTelemetryService(mockRepo, producer, config, logger)
+	service := services.NewTelemetryService(mockRepo, mockProducer, config, logger)
 
 	gpsData := core.GPS{
 		Latitude:  -23.5505,
@@ -118,7 +114,7 @@ func TestSaveGPSData(t *testing.T) {
 	mockRepo.On("SaveGPSData", gpsData).Return(nil)
 	mockProducer.On("PublishWithRetry", mock.Anything, config.GPSTopic, gpsData, mock.Anything, mock.Anything).Return(nil)
 
-	err = service.SaveGPSData(gpsData)
+	err := service.SaveGPSData(gpsData)
 
 	assert.NoError(t, err)
 	mockRepo.AssertExpectations(t)
@@ -135,16 +131,9 @@ func TestSavePhotoData(t *testing.T) {
 		PhotoTopic:     "photo.telemetry",
 	}
 	
-	mockProducer := new(MockProducer)
-	producer, err := messaging.NewProducerAdapter(mockProducer, messaging.ProducerConfig{
-		URL: "nats://mock:4222",
-	}, logger)
-	if err != nil {
-		t.Skip("Pulando teste: não foi possível criar o produtor NATS")
-		return
-	}
+	mockProducer := new(mocks.MockProducer)
 	
-	service := services.NewTelemetryService(mockRepo, producer, config, logger)
+	service := services.NewTelemetryService(mockRepo, mockProducer, config, logger)
 
 	photoData := core.Photo{
 		Photo:     "base64_encoded_string",
@@ -155,7 +144,7 @@ func TestSavePhotoData(t *testing.T) {
 	mockRepo.On("SavePhotoData", photoData).Return(nil)
 	mockProducer.On("PublishWithRetry", mock.Anything, config.PhotoTopic, photoData, mock.Anything, mock.Anything).Return(nil)
 
-	err = service.SavePhotoData(photoData)
+	err := service.SavePhotoData(photoData)
 
 	assert.NoError(t, err)
 	mockRepo.AssertExpectations(t)
@@ -168,16 +157,9 @@ func TestGetGyroscopeData(t *testing.T) {
 	
 	config := services.TelemetryServiceConfig{}
 	
-	mockProducer := new(MockProducer)
-	producer, err := messaging.NewProducerAdapter(mockProducer, messaging.ProducerConfig{
-		URL: "nats://mock:4222",
-	}, logger)
-	if err != nil {
-		t.Skip("Pulando teste: não foi possível criar o produtor NATS")
-		return
-	}
+	mockProducer := new(mocks.MockProducer)
 	
-	service := services.NewTelemetryService(mockRepo, producer, config, logger)
+	service := services.NewTelemetryService(mockRepo, mockProducer, config, logger)
 
 	expectedData := []core.Gyroscope{
 		{
@@ -205,16 +187,9 @@ func TestGetGPSData(t *testing.T) {
 	
 	config := services.TelemetryServiceConfig{}
 	
-	mockProducer := new(MockProducer)
-	producer, err := messaging.NewProducerAdapter(mockProducer, messaging.ProducerConfig{
-		URL: "nats://mock:4222",
-	}, logger)
-	if err != nil {
-		t.Skip("Pulando teste: não foi possível criar o produtor NATS")
-		return
-	}
+	mockProducer := new(mocks.MockProducer)
 	
-	service := services.NewTelemetryService(mockRepo, producer, config, logger)
+	service := services.NewTelemetryService(mockRepo, mockProducer, config, logger)
 
 	expectedData := []core.GPS{
 		{
@@ -227,14 +202,12 @@ func TestGetGPSData(t *testing.T) {
 	}
 
 	mockRepo.On("GetGPSData").Return(expectedData, nil)
-	mockProducer.On("PublishWithRetry", mock.Anything, config.GPSTopic, expectedData[0], mock.Anything, mock.Anything).Return(nil)
 
 	data, err := service.GetGPSData()
 
 	assert.NoError(t, err)
 	assert.Equal(t, expectedData, data)
 	mockRepo.AssertExpectations(t)
-	mockProducer.AssertExpectations(t)
 }
 
 func TestGetPhotoData(t *testing.T) {
@@ -243,15 +216,9 @@ func TestGetPhotoData(t *testing.T) {
 	
 	config := services.TelemetryServiceConfig{}
 	
-	producer, err := messaging.NewProducer(messaging.ProducerConfig{
-		URL: "nats://mock:4222",
-	}, logger)
-	if err != nil {
-		t.Skip("Pulando teste: não foi possível criar o produtor NATS")
-		return
-	}
+	mockProducer := new(mocks.MockProducer)
 	
-	service := services.NewTelemetryService(mockRepo, producer, config, logger)
+	service := services.NewTelemetryService(mockRepo, mockProducer, config, logger)
 
 	expectedData := []core.Photo{
 		{

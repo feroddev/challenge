@@ -1,7 +1,7 @@
 package recognition
 
 import (
-	"bytes"
+	"encoding/base64"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
@@ -45,34 +45,43 @@ func NewAWSRekognitionClient(config AWSConfig, logger *zap.Logger) (*AWSRekognit
 	}, nil
 }
 
-func (c *AWSRekognitionClient) CompareFaces(sourceImage []byte, targetImage []byte) (float32, error) {
+func (c *AWSRekognitionClient) CompareFaces(sourceImageBase64 string, targetImageBase64 string) (bool, float32, error) {
+	sourceBytes, err := base64.StdEncoding.DecodeString(sourceImageBase64)
+	if err != nil {
+		c.logger.Error("Erro ao decodificar imagem fonte", zap.Error(err))
+		return false, 0, err
+	}
+
+	targetBytes, err := base64.StdEncoding.DecodeString(targetImageBase64)
+	if err != nil {
+		c.logger.Error("Erro ao decodificar imagem alvo", zap.Error(err))
+		return false, 0, err
+	}
+
 	input := &rekognition.CompareFacesInput{
 		SourceImage: &rekognition.Image{
-			Bytes: sourceImage,
+			Bytes: sourceBytes,
 		},
 		TargetImage: &rekognition.Image{
-			Bytes: targetImage,
+			Bytes: targetBytes,
 		},
-		SimilarityThreshold: aws.Float64(0),
+		SimilarityThreshold: aws.Float64(80.0),
 	}
 
 	result, err := c.client.CompareFaces(input)
 	if err != nil {
 		c.logger.Error("Erro ao comparar faces", zap.Error(err))
-		return 0, err
+		return false, 0, err
 	}
 
 	if len(result.FaceMatches) == 0 {
-		return 0, nil
+		c.logger.Info("Nenhuma correspondência facial encontrada")
+		return false, 0, nil
 	}
 
-	var maxSimilarity float32
-	for _, match := range result.FaceMatches {
-		similarity := float32(*match.Similarity)
-		if similarity > maxSimilarity {
-			maxSimilarity = similarity
-		}
-	}
+	similarity := float32(*result.FaceMatches[0].Similarity)
+	c.logger.Info("Faces comparadas com sucesso",
+		zap.Float32("similarity", similarity))
 
-	return maxSimilarity / 100.0, nil
+	return true, similarity, nil
 }
