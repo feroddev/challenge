@@ -8,12 +8,15 @@ import (
 
 	"github.com/nats-io/nats.go"
 	"go.uber.org/zap"
+	"github/feroddev/challengeV3/internal/pkg/crypto"
 )
 
 type Producer struct {
-	conn   *nats.Conn
-	logger *zap.Logger
-	config ProducerConfig
+	conn      *nats.Conn
+	logger    *zap.Logger
+	config    ProducerConfig
+	validator *SchemaValidator
+	encryptor *crypto.Encryptor
 }
 
 type ProducerConfig struct {
@@ -21,6 +24,7 @@ type ProducerConfig struct {
 	RetryAttempts     int
 	RetryDelaySeconds int
 	DeadLetterTopic   string
+	EncryptionKey     string
 }
 
 func NewProducer(config ProducerConfig, logger *zap.Logger) (*Producer, error) {
@@ -29,27 +33,65 @@ func NewProducer(config ProducerConfig, logger *zap.Logger) (*Producer, error) {
 		return nil, fmt.Errorf("erro ao conectar ao NATS: %w", err)
 	}
 
+	validator := NewSchemaValidator(logger)
+	validator.RegisterDefaultSchemas()
+
+	var encryptor *crypto.Encryptor
+	if config.EncryptionKey != "" {
+		encryptor, err = crypto.NewEncryptor(config.EncryptionKey)
+		if err != nil {
+			logger.Warn("Falha ao inicializar encriptador, dados nao serao criptografados", zap.Error(err))
+		}
+	}
+
 	return &Producer{
-		conn:   conn,
-		logger: logger,
-		config: config,
+		conn:      conn,
+		logger:    logger,
+		config:    config,
+		validator: validator,
+		encryptor: encryptor,
 	}, nil
 }
 
 func (p *Producer) Publish(topic string, data interface{}) error {
-	payload, err := json.Marshal(data)
+	if p.validator != nil {
+		err := p.validator.ValidateMessage(topic, data)
+		if err != nil {
+			p.logger.Error("Validacao de schema falhou", 
+				zap.String("topic", topic), 
+				zap.Error(err))
+			return fmt.Errorf("erro de validacao de schema: %w", err)
+		}
+	}
+
+	dataToSend := data
+	if p.encryptor != nil {
+		encryptedData, err := p.encryptSensitiveData(data)
+		if err != nil {
+			p.logger.Warn("Falha ao criptografar dados sensíveis", zap.Error(err))
+		} else {
+			dataToSend = encryptedData
+		}
+	}
+
+	payload, err := json.Marshal(dataToSend)
 	if err != nil {
 		return fmt.Errorf("erro ao serializar mensagem: %w", err)
 	}
 
 	p.logger.Info("Publicando mensagem",
 		zap.String("topic", topic),
-		zap.Int("payload_size", len(payload)))
+		zap.Int("payload_size", len(payload)),
+		zap.Time("timestamp", time.Now()))
 
 	err = p.conn.Publish(topic, payload)
 	if err != nil {
 		return fmt.Errorf("erro ao publicar mensagem: %w", err)
 	}
+
+	p.logger.Info("Mensagem publicada com sucesso",
+		zap.String("topic", topic),
+		zap.Time("timestamp", time.Now()))
 
 	return nil
 }
