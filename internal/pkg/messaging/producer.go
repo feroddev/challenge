@@ -107,10 +107,11 @@ func (p *Producer) PublishWithRetry(ctx context.Context, topic string, data inte
 	return lastErr
 }
 
-func (p *Producer) Close() {
+func (p *Producer) Close() error {
 	if p.conn != nil {
 		p.conn.Close()
 	}
+	return nil
 }
 
 type DeadLetterMessage struct {

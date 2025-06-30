@@ -56,7 +56,7 @@ func TestProcessPhotoRecognition(t *testing.T) {
 	mockCache.On("Set", "recognition:3:2", "false:0.000000", time.Hour*24).Return(nil)
 	mockCache.On("Set", "recognition:1:2", "true:80.000000", time.Hour*24).Return(nil)
 	mockRepo.On("UpdatePhotoRecognition", uint(2), true, float32(80.0)).Return(nil)
-	mockProducer.On("Publish", "photo.recognition", mock.Anything).Return(nil)
+	mockProducer.On("PublishWithRetry", mock.Anything, "photo.recognition", mock.Anything, 3, 500*time.Millisecond).Return(nil)
 
 	result, err := telemetryService.ProcessPhotoRecognition(context.Background(), photo2)
 
@@ -110,7 +110,7 @@ func TestProcessPhotoRecognitionWithCache(t *testing.T) {
 	mockAWS.On("CompareFaces", photo0.Photo, photo2.Photo).Return(false, float32(0), nil)
 	mockCache.On("Set", "recognition:3:2", "false:0.000000", time.Hour*24).Return(nil)
 	mockRepo.On("UpdatePhotoRecognition", uint(2), true, float32(80.0)).Return(nil)
-	mockProducer.On("Publish", "photo.recognition", mock.Anything).Return(nil)
+	mockProducer.On("PublishWithRetry", mock.Anything, "photo.recognition", mock.Anything, 3, 500*time.Millisecond).Return(nil)
 
 	result, err := telemetryService.ProcessPhotoRecognition(context.Background(), photo2)
 

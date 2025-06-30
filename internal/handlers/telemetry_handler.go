@@ -5,12 +5,9 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"go.opentelemetry.io/otel/attribute"
 	"go.uber.org/zap"
 
 	"github/feroddev/challengeV3/internal/core"
-	"github/feroddev/challengeV3/internal/pkg/metrics"
-	"github/feroddev/challengeV3/internal/pkg/tracing"
 	"github/feroddev/challengeV3/internal/services"
 )
 

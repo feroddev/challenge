@@ -6,7 +6,6 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/trace"
-	"github/feroddev/challengeV3/internal/pkg/tracing"
 )
 
 func OpenTelemetryMiddleware(serviceName string) gin.HandlerFunc {
