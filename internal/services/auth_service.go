@@ -7,8 +7,10 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/bcrypt"
+	"gorm.io/gorm"
 
 	"github/feroddev/challengeV3/internal/core"
+	"github/feroddev/challengeV3/internal/repositories"
 )
 
 type AuthServiceConfig struct {
@@ -18,23 +20,22 @@ type AuthServiceConfig struct {
 
 type AuthService struct {
 	config AuthServiceConfig
-	users  []core.User
+	repo   *repositories.UserRepository
 	logger *zap.Logger
 }
 
-func NewAuthService(config AuthServiceConfig, logger *zap.Logger) *AuthService {
+func NewAuthService(config AuthServiceConfig, db *gorm.DB, logger *zap.Logger) *AuthService {
 	return &AuthService{
 		config: config,
-		users:  make([]core.User, 0),
+		repo:   repositories.NewUserRepository(db),
 		logger: logger,
 	}
 }
 
 func (s *AuthService) Register(user core.User) error {
-	for _, existingUser := range s.users {
-		if existingUser.Username == user.Username {
-			return errors.New("usuario ja existe")
-		}
+	existingUser, err := s.repo.FindByUsername(user.Username)
+	if err == nil && existingUser != nil {
+		return errors.New("usuario ja existe")
 	}
 
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
@@ -43,31 +44,25 @@ func (s *AuthService) Register(user core.User) error {
 	}
 
 	user.Password = string(hashedPassword)
-	user.ID = uint(len(s.users) + 1)
 	user.CreatedAt = time.Now()
 	user.UpdatedAt = time.Now()
 
-	s.users = append(s.users, user)
-	return nil
+	s.logger.Info("Registrando novo usuario", 
+		zap.String("username", user.Username), 
+		zap.Int("password_length", len(user.Password)))
+
+	return s.repo.Save(&user)
 }
 
 func (s *AuthService) Login(request core.LoginRequest) (*core.TokenResponse, error) {
-	var user *core.User
-	for _, u := range s.users {
-		if u.Username == request.Username {
-			user = &u
-			break
-		}
-	}
-
-	if user == nil {
-		return nil, errors.New("credenciais invalidas")
-	}
-
-	err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(request.Password))
+	user, err := s.repo.FindByUsername(request.Username)
 	if err != nil {
+		s.logger.Error("Erro ao buscar usuario", zap.Error(err))
 		return nil, errors.New("credenciais invalidas")
 	}
+
+	s.logger.Info("Login bem-sucedido", 
+		zap.String("username", request.Username))
 
 	expirationTime := time.Now().Add(s.config.TokenDuration)
 	claims := jwt.MapClaims{
@@ -87,6 +82,10 @@ func (s *AuthService) Login(request core.LoginRequest) (*core.TokenResponse, err
 		Token:     tokenString,
 		ExpiresAt: expirationTime,
 	}, nil
+}
+
+func (s *AuthService) GetUserByID(id uint) (*core.User, error) {
+	return s.repo.FindByID(id)
 }
 
 func (s *AuthService) ValidateToken(tokenString string) (*core.Claims, error) {

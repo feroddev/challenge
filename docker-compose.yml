@@ -28,6 +28,11 @@ services:
       NATS_RETRY_ATTEMPTS: 3
       NATS_RETRY_DELAY: 5
       NATS_DEAD_LETTER_TOPIC: telemetry.deadletter
+      JWT_SECRET: chave_secreta_muito_segura_para_jwt_tokens_123456789
+      JWT_TOKEN_DURATION: 24
+      RATE_LIMIT_REQUESTS: 100
+      RATE_LIMIT_PERIOD: 60
+      ENCRYPTION_KEY: chave_de_32_bytes_para_criptogra
     depends_on:
       - postgres
       - redis
@@ -117,6 +122,11 @@ services:
       NATS_RETRY_ATTEMPTS: 3
       NATS_RETRY_DELAY: 5
       NATS_DEAD_LETTER_TOPIC: telemetry.deadletter
+      JWT_SECRET: chave_secreta_muito_segura_para_jwt_tokens_123456789
+      JWT_TOKEN_DURATION: 24
+      RATE_LIMIT_REQUESTS: 100
+      RATE_LIMIT_PERIOD: 60
+      ENCRYPTION_KEY: chave_de_32_bytes_para_criptogra
     depends_on:
       - postgres
       - nats
@@ -142,6 +152,11 @@ services:
       NATS_RETRY_ATTEMPTS: 3
       NATS_RETRY_DELAY: 5
       NATS_DEAD_LETTER_TOPIC: telemetry.deadletter
+      JWT_SECRET: chave_secreta_muito_segura_para_jwt_tokens_123456789
+      JWT_TOKEN_DURATION: 24
+      RATE_LIMIT_REQUESTS: 100
+      RATE_LIMIT_PERIOD: 60
+      ENCRYPTION_KEY: chave_de_32_bytes_para_criptogra
     depends_on:
       - postgres
       - nats
@@ -172,6 +187,11 @@ services:
       NATS_RETRY_ATTEMPTS: 3
       NATS_RETRY_DELAY: 5
       NATS_DEAD_LETTER_TOPIC: telemetry.deadletter
+      JWT_SECRET: chave_secreta_muito_segura_para_jwt_tokens_123456789
+      JWT_TOKEN_DURATION: 24
+      RATE_LIMIT_REQUESTS: 100
+      RATE_LIMIT_PERIOD: 60
+      ENCRYPTION_KEY: chave_de_32_bytes_para_criptogra
     depends_on:
       - postgres
       - redis

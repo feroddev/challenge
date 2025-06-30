@@ -95,7 +95,8 @@ func main() {
 		JWTSecret:     config.Auth.JWTSecret,
 		TokenDuration: time.Duration(config.Auth.TokenDuration) * time.Hour,
 	}
-	authService := services.NewAuthService(authServiceConfig, logger)
+	db := repositories.GetDB()
+	authService := services.NewAuthService(authServiceConfig, db, logger)
 
 	// Configura os handlers
 	telemetryHandler := handlers.NewTelemetryHandler(telemetryService, logger)
