@@ -6,7 +6,7 @@ COPY go.mod go.sum ./
 RUN go mod download
 
 COPY . .
-
+RUN go mod tidy
 RUN CGO_ENABLED=0 GOOS=linux go build -o /app/bin/gyroscope-consumer cmd/consumers/gyroscope/main.go
 RUN CGO_ENABLED=0 GOOS=linux go build -o /app/bin/gps-consumer cmd/consumers/gps/main.go
 RUN CGO_ENABLED=0 GOOS=linux go build -o /app/bin/photo-consumer cmd/consumers/photo/main.go
