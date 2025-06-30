@@ -1,7 +1,6 @@
 package services_test
 
 import (
-	"context"
 	"testing"
 	"time"
 
@@ -14,52 +13,10 @@ import (
 	"github/feroddev/challengeV3/test/mocks"
 )
 
-type MockTelemetryRepository struct {
-	mock.Mock
-}
 
-func (m *MockTelemetryRepository) SaveGyroscopeData(data core.Gyroscope) error {
-	args := m.Called(data)
-	return args.Error(0)
-}
-
-func (m *MockTelemetryRepository) SaveGPSData(data core.GPS) error {
-	args := m.Called(data)
-	return args.Error(0)
-}
-
-func (m *MockTelemetryRepository) SavePhotoData(data core.Photo) error {
-	args := m.Called(data)
-	return args.Error(0)
-}
-
-func (m *MockTelemetryRepository) GetGyroscopeData() ([]core.Gyroscope, error) {
-	args := m.Called()
-	return args.Get(0).([]core.Gyroscope), args.Error(1)
-}
-
-func (m *MockTelemetryRepository) GetGPSData() ([]core.GPS, error) {
-	args := m.Called()
-	return args.Get(0).([]core.GPS), args.Error(1)
-}
-
-func (m *MockTelemetryRepository) GetPhotoData() ([]core.Photo, error) {
-	args := m.Called()
-	return args.Get(0).([]core.Photo), args.Error(1)
-}
-
-func (m *MockTelemetryRepository) GetPhotosByDeviceID(deviceID string) ([]core.Photo, error) {
-	args := m.Called(deviceID)
-	return args.Get(0).([]core.Photo), args.Error(1)
-}
-
-func (m *MockTelemetryRepository) UpdatePhotoRecognition(id uint, recognized bool, similarity float32) error {
-	args := m.Called(id, recognized, similarity)
-	return args.Error(0)
-}
 
 func TestSaveGyroscopeData(t *testing.T) {
-	mockRepo := new(MockTelemetryRepository)
+	mockRepo := new(mocks.MockTelemetryRepository)
 	logger, _ := zap.NewDevelopment()
 	
 	config := services.TelemetryServiceConfig{
@@ -91,7 +48,7 @@ func TestSaveGyroscopeData(t *testing.T) {
 }
 
 func TestSaveGPSData(t *testing.T) {
-	mockRepo := new(MockTelemetryRepository)
+	mockRepo := new(mocks.MockTelemetryRepository)
 	logger, _ := zap.NewDevelopment()
 	
 	config := services.TelemetryServiceConfig{
@@ -122,7 +79,7 @@ func TestSaveGPSData(t *testing.T) {
 }
 
 func TestSavePhotoData(t *testing.T) {
-	mockRepo := new(MockTelemetryRepository)
+	mockRepo := new(mocks.MockTelemetryRepository)
 	logger, _ := zap.NewDevelopment()
 	
 	config := services.TelemetryServiceConfig{
@@ -152,7 +109,7 @@ func TestSavePhotoData(t *testing.T) {
 }
 
 func TestGetGyroscopeData(t *testing.T) {
-	mockRepo := new(MockTelemetryRepository)
+	mockRepo := new(mocks.MockTelemetryRepository)
 	logger, _ := zap.NewDevelopment()
 	
 	config := services.TelemetryServiceConfig{}
@@ -182,7 +139,7 @@ func TestGetGyroscopeData(t *testing.T) {
 }
 
 func TestGetGPSData(t *testing.T) {
-	mockRepo := new(MockTelemetryRepository)
+	mockRepo := new(mocks.MockTelemetryRepository)
 	logger, _ := zap.NewDevelopment()
 	
 	config := services.TelemetryServiceConfig{}
@@ -211,7 +168,7 @@ func TestGetGPSData(t *testing.T) {
 }
 
 func TestGetPhotoData(t *testing.T) {
-	mockRepo := new(MockTelemetryRepository)
+	mockRepo := new(mocks.MockTelemetryRepository)
 	logger, _ := zap.NewDevelopment()
 	
 	config := services.TelemetryServiceConfig{}
